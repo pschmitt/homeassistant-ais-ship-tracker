@@ -14,7 +14,7 @@ import threading
 from datetime import datetime, timedelta
 
 print("🚀 Starting AIS Ship Tracker...", flush=True)
-VERSION = "1.4.7"
+VERSION = "1.4.8"
 
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
