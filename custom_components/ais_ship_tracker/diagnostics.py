@@ -25,9 +25,9 @@ async def async_get_config_entry_diagnostics(
     coordinator = config_entry.runtime_data
     settings = {**config_entry.data, **config_entry.options}
     camera = {
-        "available": coordinator is not None and coordinator.available,
-        "attributes": coordinator.attributes if coordinator is not None else {},
-        "image_size": len(coordinator.image or b"") if coordinator is not None else 0,
+        "available": coordinator.available,
+        "attributes": coordinator.attributes,
+        "image_size": len(coordinator.image or b""),
     }
     return {
         "entry": {

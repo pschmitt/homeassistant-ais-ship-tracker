@@ -122,6 +122,8 @@ class ShipPhotoCoordinator:
 
     async def async_refresh(self, *, force: bool = False) -> None:
         """Search for and cache the current vessel photo."""
+        if not self.searxng_url:
+            return
         state = self.hass.states.get(self.vessel_entity)
         if state is None:
             self._set_error(f"Vessel entity {self.vessel_entity} is unavailable")
