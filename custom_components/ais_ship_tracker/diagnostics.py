@@ -8,7 +8,12 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from . import AisShipTrackerConfigEntry
-from .const import CONF_SEARXNG_URL, CONF_VESSEL_ENTITY
+from .const import (
+    CONF_SEARXNG_PASSWORD,
+    CONF_SEARXNG_URL,
+    CONF_SEARXNG_USERNAME,
+    CONF_VESSEL_ENTITY,
+)
 
 
 async def async_get_config_entry_diagnostics(
@@ -19,19 +24,25 @@ async def async_get_config_entry_diagnostics(
     del hass
     coordinator = config_entry.runtime_data
     settings = {**config_entry.data, **config_entry.options}
+    camera = {
+        "available": coordinator is not None and coordinator.available,
+        "attributes": coordinator.attributes if coordinator is not None else {},
+        "image_size": len(coordinator.image or b"") if coordinator is not None else 0,
+    }
     return {
         "entry": {
             "title": config_entry.title,
-            "data": async_redact_data(dict(config_entry.data), set()),
-            "options": async_redact_data(dict(config_entry.options), set()),
+            "data": async_redact_data(
+                dict(config_entry.data), {CONF_SEARXNG_PASSWORD}
+            ),
+            "options": async_redact_data(
+                dict(config_entry.options), {CONF_SEARXNG_PASSWORD}
+            ),
         },
         "settings": {
             CONF_SEARXNG_URL: settings.get(CONF_SEARXNG_URL),
+            CONF_SEARXNG_USERNAME: settings.get(CONF_SEARXNG_USERNAME),
             CONF_VESSEL_ENTITY: settings.get(CONF_VESSEL_ENTITY),
         },
-        "camera": {
-            "available": coordinator.available,
-            "attributes": coordinator.attributes,
-            "image_size": len(coordinator.image or b""),
-        },
+        "camera": camera,
     }

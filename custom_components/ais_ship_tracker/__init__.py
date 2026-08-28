@@ -12,10 +12,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
 
-from .const import CONF_SEARXNG_URL, CONF_VESSEL_ENTITY, DOMAIN, PLATFORMS
+from .const import (
+    CONF_SEARXNG_PASSWORD,
+    CONF_SEARXNG_URL,
+    CONF_SEARXNG_USERNAME,
+    CONF_VESSEL_ENTITY,
+    DOMAIN,
+    PLATFORMS,
+)
 from .coordinator import ShipPhotoCoordinator
 
-type AisShipTrackerConfigEntry = ConfigEntry[ShipPhotoCoordinator]
+type AisShipTrackerConfigEntry = ConfigEntry[ShipPhotoCoordinator | None]
 
 
 def _valid_url(value: str) -> bool:
@@ -45,7 +52,8 @@ def _update_config_issues(
         ir.async_delete_issue(hass, DOMAIN, vessel_issue_id)
 
     url_issue_id = f"invalid_searxng_url_{entry.entry_id}"
-    if _valid_url(settings[CONF_SEARXNG_URL]):
+    searxng_url = settings.get(CONF_SEARXNG_URL, "")
+    if not searxng_url or _valid_url(searxng_url):
         ir.async_delete_issue(hass, DOMAIN, url_issue_id)
     else:
         ir.async_create_issue(
@@ -73,26 +81,35 @@ async def async_setup_entry(
     """Set up AIS Ship Tracker from a config entry."""
     settings = {**entry.data, **entry.options}
     _update_config_issues(hass, entry, settings)
-    coordinator = ShipPhotoCoordinator(
-        hass,
-        async_get_clientsession(hass),
-        settings[CONF_SEARXNG_URL],
-        settings[CONF_VESSEL_ENTITY],
-    )
+    coordinator = None
+    platforms = []
+    if settings.get(CONF_SEARXNG_URL):
+        coordinator = ShipPhotoCoordinator(
+            hass,
+            async_get_clientsession(hass),
+            settings[CONF_SEARXNG_URL],
+            settings[CONF_VESSEL_ENTITY],
+            settings.get(CONF_SEARXNG_USERNAME),
+            settings.get(CONF_SEARXNG_PASSWORD),
+            entry.entry_id,
+        )
+        platforms = PLATFORMS
     entry.runtime_data = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if platforms:
+        await hass.config_entries.async_forward_entry_setups(entry, platforms)
 
     @callback
     def state_changed(event: Any) -> None:
         """Refresh the photo when the tracked vessel changes."""
         del event
         _update_config_issues(hass, entry, settings)
-        entry.async_create_background_task(
-            hass,
-            coordinator.async_refresh(force=True),
-            "ais_ship_tracker_refresh",
-        )
+        if coordinator is not None:
+            entry.async_create_background_task(
+                hass,
+                coordinator.async_refresh(force=True),
+                "ais_ship_tracker_refresh",
+            )
 
     remove_listener = async_track_state_change_event(
         hass,
@@ -101,11 +118,12 @@ async def async_setup_entry(
     )
     entry.async_on_unload(remove_listener)
 
-    entry.async_create_background_task(
-        hass,
-        coordinator.async_refresh(),
-        "ais_ship_tracker_initial_refresh",
-    )
+    if coordinator is not None:
+        entry.async_create_background_task(
+            hass,
+            coordinator.async_refresh(),
+            "ais_ship_tracker_initial_refresh",
+        )
     return True
 
 

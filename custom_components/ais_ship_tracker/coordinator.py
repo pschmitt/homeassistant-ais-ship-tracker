@@ -10,8 +10,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode, urljoin
 
-from aiohttp import ClientError, ClientSession
+from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
+
+from .const import DOMAIN, ISSUE_SEARXNG_AUTHENTICATION, ISSUE_SEARXNG_ENDPOINT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,11 +38,16 @@ class ShipPhotoCoordinator:
         session: ClientSession,
         searxng_url: str,
         vessel_entity: str,
+        username: str | None,
+        password: str | None,
+        entry_id: str,
     ) -> None:
         self.hass = hass
         self.session = session
         self.searxng_url = searxng_url.rstrip("/")
         self.vessel_entity = vessel_entity
+        self._auth = BasicAuth(username, password) if username else None
+        self.entry_id = entry_id
         self._image: bytes | None = None
         self._content_type = "image/jpeg"
         self._mmsi = ""
@@ -152,10 +160,12 @@ class ShipPhotoCoordinator:
                         "Accept": "text/html",
                         "User-Agent": "Home Assistant AIS ship photo camera",
                     },
+                    auth=self._auth,
                     timeout=15,
                 ) as response:
                     response.raise_for_status()
                     search_html = html.unescape(await response.text())
+                self._set_service_issue(None)
 
                 proxy_path = _MARINE_TRAFFIC_PROXY.search(search_html)
                 provider = "MarineTraffic"
@@ -173,6 +183,7 @@ class ShipPhotoCoordinator:
                 async with self.session.get(
                     photo_url,
                     headers={"User-Agent": "Home Assistant AIS ship photo camera"},
+                    auth=self._auth,
                     timeout=20,
                 ) as response:
                     response.raise_for_status()
@@ -194,6 +205,17 @@ class ShipPhotoCoordinator:
                     mmsi,
                     provider,
                 )
+            except ClientResponseError as err:
+                if err.status in (401, 403):
+                    self._set_service_issue(ISSUE_SEARXNG_AUTHENTICATION)
+                elif err.status == 404:
+                    self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
+                self._set_error(f"Photo lookup failed with HTTP {err.status}")
+                _LOGGER.warning(
+                    "AIS Ship Tracker photo lookup failed for %s: HTTP %s",
+                    mmsi,
+                    err.status,
+                )
             except (ClientError, asyncio.TimeoutError) as err:
                 self._set_error(f"Photo lookup failed: {err}")
                 _LOGGER.warning("AIS ship photo lookup failed for %s: %s", mmsi, err)
@@ -204,6 +226,26 @@ class ShipPhotoCoordinator:
         """Set an error while clearing the old photo."""
         self._image = None
         self._error = error
+
+    def _set_service_issue(self, issue_key: str | None) -> None:
+        """Create or clear SearXNG service repairs."""
+        issue_keys = (ISSUE_SEARXNG_AUTHENTICATION, ISSUE_SEARXNG_ENDPOINT)
+        for known_issue in issue_keys:
+            issue_id = f"{known_issue}_{self.entry_id}"
+            if known_issue == issue_key:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    issue_id,
+                    data={"entry_id": self.entry_id},
+                    is_fixable=True,
+                    is_persistent=True,
+                    issue_domain=DOMAIN,
+                    severity=ir.IssueSeverity.ERROR,
+                    translation_key=known_issue,
+                )
+            else:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
 
     def _notify_listeners(self) -> None:
         """Notify entities that coordinator data changed."""

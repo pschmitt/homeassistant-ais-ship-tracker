@@ -13,10 +13,14 @@ from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
     TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 from .const import (
+    CONF_SEARXNG_PASSWORD,
     CONF_SEARXNG_URL,
+    CONF_SEARXNG_USERNAME,
     CONF_VESSEL_ENTITY,
     DOMAIN,
 )
@@ -37,7 +41,11 @@ def _data_schema() -> vol.Schema:
     """Return the shared integration settings schema."""
     return vol.Schema(
         {
-            vol.Required(CONF_SEARXNG_URL): TextSelector(),
+            vol.Optional(CONF_SEARXNG_URL, default=""): TextSelector(),
+            vol.Optional(CONF_SEARXNG_USERNAME): TextSelector(),
+            vol.Optional(CONF_SEARXNG_PASSWORD): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.PASSWORD)
+            ),
             vol.Required(
                 CONF_VESSEL_ENTITY,
             ): EntitySelector(EntitySelectorConfig(domain="sensor")),
@@ -61,9 +69,13 @@ class AisShipTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             user_input[CONF_SEARXNG_URL] = _normalize_url(
-                user_input[CONF_SEARXNG_URL]
+                user_input.get(CONF_SEARXNG_URL, "")
             )
-            if not _valid_url(user_input[CONF_SEARXNG_URL]):
+            if not user_input.get(CONF_SEARXNG_PASSWORD):
+                user_input.pop(CONF_SEARXNG_PASSWORD, None)
+            if user_input[CONF_SEARXNG_URL] and not _valid_url(
+                user_input[CONF_SEARXNG_URL]
+            ):
                 errors["base"] = "invalid_url"
             else:
                 await self.async_set_unique_id("ais_ship_tracker")
@@ -85,14 +97,19 @@ class AisShipTrackerOptionsFlow(OptionsFlowWithReload):
         errors = {}
         if user_input is not None:
             user_input[CONF_SEARXNG_URL] = _normalize_url(
-                user_input[CONF_SEARXNG_URL]
+                user_input.get(CONF_SEARXNG_URL, "")
             )
-            if not _valid_url(user_input[CONF_SEARXNG_URL]):
+            if not user_input.get(CONF_SEARXNG_PASSWORD):
+                user_input.pop(CONF_SEARXNG_PASSWORD, None)
+            if user_input[CONF_SEARXNG_URL] and not _valid_url(
+                user_input[CONF_SEARXNG_URL]
+            ):
                 errors["base"] = "invalid_url"
             else:
                 return self.async_create_entry(title="", data=user_input)
 
         current = {**self.config_entry.data, **self.config_entry.options}
+        current.pop(CONF_SEARXNG_PASSWORD, None)
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(_data_schema(), current),

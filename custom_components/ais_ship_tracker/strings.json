@@ -2,10 +2,12 @@
   "config": {
     "step": {
       "user": {
-        "title": "AIS ship photo",
-        "description": "Search SearXNG for a photo of the vessel tracked by Home Assistant.",
+        "title": "AIS Ship Tracker",
+        "description": "Track an AIS vessel and optionally search SearXNG for its photo.",
         "data": {
-          "searxng_url": "SearXNG URL",
+          "searxng_url": "SearXNG URL (optional)",
+          "searxng_username": "SearXNG username",
+          "searxng_password": "SearXNG password",
           "vessel_entity": "AIS vessel entity"
         },
         "error": {
@@ -17,10 +19,12 @@
   "options": {
     "step": {
       "init": {
-        "title": "AIS ship photo settings",
-        "description": "Choose the SearXNG instance and Home Assistant sensor used for vessel lookups.",
+        "title": "AIS Ship Tracker settings",
+        "description": "Choose the vessel sensor and optionally configure SearXNG photo lookups.",
         "data": {
-          "searxng_url": "SearXNG URL",
+          "searxng_url": "SearXNG URL (optional)",
+          "searxng_username": "SearXNG username",
+          "searxng_password": "SearXNG password",
           "vessel_entity": "AIS vessel entity"
         },
         "error": {
@@ -42,10 +46,12 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS ship photo settings",
-            "description": "Select an existing vessel sensor and verify the SearXNG URL.",
+            "title": "Fix AIS Ship Tracker settings",
+            "description": "Select an existing vessel sensor. Leave SearXNG empty to disable photo lookups.",
             "data": {
-              "searxng_url": "SearXNG URL",
+              "searxng_url": "SearXNG URL (optional)",
+              "searxng_username": "SearXNG username",
+              "searxng_password": "SearXNG password",
               "vessel_entity": "AIS vessel entity"
             },
             "error": {
@@ -55,7 +61,7 @@
           }
         },
         "abort": {
-          "entry_not_found": "The AIS ship photo config entry no longer exists."
+          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
         }
       }
     },
@@ -64,10 +70,12 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS ship photo settings",
-            "description": "Enter a valid SearXNG URL and select an existing vessel sensor.",
+            "title": "Fix AIS Ship Tracker settings",
+            "description": "Enter a valid SearXNG URL or leave it empty to disable photo lookups.",
             "data": {
-              "searxng_url": "SearXNG URL",
+              "searxng_url": "SearXNG URL (optional)",
+              "searxng_username": "SearXNG username",
+              "searxng_password": "SearXNG password",
               "vessel_entity": "AIS vessel entity"
             },
             "error": {
@@ -77,7 +85,55 @@
           }
         },
         "abort": {
-          "entry_not_found": "The AIS ship photo config entry no longer exists."
+          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
+        }
+      }
+    },
+    "searxng_authentication": {
+      "title": "SearXNG authentication failed",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "Fix AIS Ship Tracker SearXNG credentials",
+            "description": "Check the SearXNG URL and credentials, or leave the URL empty to disable photo lookups.",
+            "data": {
+              "searxng_url": "SearXNG URL (optional)",
+              "searxng_username": "SearXNG username",
+              "searxng_password": "SearXNG password",
+              "vessel_entity": "AIS vessel entity"
+            },
+            "error": {
+              "invalid_url": "Enter a valid HTTP or HTTPS URL.",
+              "entity_not_found": "Select an existing Home Assistant sensor."
+            }
+          }
+        },
+        "abort": {
+          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
+        }
+      }
+    },
+    "searxng_endpoint": {
+      "title": "The SearXNG endpoint could not be found",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "Fix AIS Ship Tracker SearXNG URL",
+            "description": "Check the SearXNG URL, or leave it empty to disable photo lookups.",
+            "data": {
+              "searxng_url": "SearXNG URL (optional)",
+              "searxng_username": "SearXNG username",
+              "searxng_password": "SearXNG password",
+              "vessel_entity": "AIS vessel entity"
+            },
+            "error": {
+              "invalid_url": "Enter a valid HTTP or HTTPS URL.",
+              "entity_not_found": "Select an existing Home Assistant sensor."
+            }
+          }
+        },
+        "abort": {
+          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
         }
       }
     }

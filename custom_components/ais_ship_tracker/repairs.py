@@ -13,9 +13,16 @@ from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
     TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
-from .const import CONF_SEARXNG_URL, CONF_VESSEL_ENTITY
+from .const import (
+    CONF_SEARXNG_PASSWORD,
+    CONF_SEARXNG_URL,
+    CONF_SEARXNG_USERNAME,
+    CONF_VESSEL_ENTITY,
+)
 
 
 def _valid_url(value: str) -> bool:
@@ -54,11 +61,15 @@ class AisShipTrackerRepairFlow(RepairsFlow):
             return self.async_abort(reason="entry_not_found")
 
         errors: dict[str, str] = {}
-        if user_input is not None and CONF_SEARXNG_URL in user_input:
+        if user_input is not None:
             user_input[CONF_SEARXNG_URL] = _normalize_url(
-                user_input[CONF_SEARXNG_URL]
+                user_input.get(CONF_SEARXNG_URL, "")
             )
-            if not _valid_url(user_input[CONF_SEARXNG_URL]):
+            if not user_input.get(CONF_SEARXNG_PASSWORD):
+                user_input.pop(CONF_SEARXNG_PASSWORD, None)
+            if user_input[CONF_SEARXNG_URL] and not _valid_url(
+                user_input[CONF_SEARXNG_URL]
+            ):
                 errors["base"] = "invalid_url"
             elif self.hass.states.get(user_input[CONF_VESSEL_ENTITY]) is None:
                 errors["base"] = "entity_not_found"
@@ -70,9 +81,14 @@ class AisShipTrackerRepairFlow(RepairsFlow):
                 return self.async_create_entry(data={})
 
         current = {**entry.data, **entry.options}
+        current.pop(CONF_SEARXNG_PASSWORD, None)
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_SEARXNG_URL): TextSelector(),
+                vol.Optional(CONF_SEARXNG_URL, default=""): TextSelector(),
+                vol.Optional(CONF_SEARXNG_USERNAME): TextSelector(),
+                vol.Optional(CONF_SEARXNG_PASSWORD): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                ),
                 vol.Required(
                     CONF_VESSEL_ENTITY,
                 ): EntitySelector(EntitySelectorConfig(domain="sensor")),
