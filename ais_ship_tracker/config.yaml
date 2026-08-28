@@ -1,5 +1,5 @@
 name: "AIS Ship Tracker"
-version: "1.4.7"
+version: "1.4.8"
 slug: "ais_ship_tracker"
 description: "Tracks passing ships via AISStream"
 url: "https://github.com/pschmitt/ais_ship_tracker"
