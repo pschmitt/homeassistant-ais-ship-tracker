@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import cos, radians
 from typing import Any
 from urllib.parse import urlparse
 
@@ -31,6 +32,7 @@ from .const import (
     CONF_SEARXNG_URL,
     CONF_SEARXNG_USERNAME,
     CONF_VESSEL_WATCHLIST,
+    CONF_ZONE_RADIUS,
     DOMAIN,
 )
 
@@ -46,8 +48,9 @@ def _normalize_url(value: str) -> str:
     return value.strip().rstrip("/")
 
 
-def _data_schema() -> vol.Schema:
+def _data_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Return the shared integration settings schema."""
+    defaults = defaults or {}
     longitude = NumberSelectorConfig(min=-180, max=180, step=0.001, mode="box")
     latitude = NumberSelectorConfig(min=-90, max=90, step=0.001, mode="box")
     return vol.Schema(
@@ -55,10 +58,23 @@ def _data_schema() -> vol.Schema:
             vol.Required(CONF_API_KEY): TextSelector(
                 TextSelectorConfig(type=TextSelectorType.PASSWORD)
             ),
-            vol.Required(CONF_LONGITUDE_WEST): NumberSelector(longitude),
-            vol.Required(CONF_LATITUDE_SOUTH): NumberSelector(latitude),
-            vol.Required(CONF_LONGITUDE_EAST): NumberSelector(longitude),
-            vol.Required(CONF_LATITUDE_NORTH): NumberSelector(latitude),
+            vol.Required(
+                CONF_LONGITUDE_WEST, default=defaults.get(CONF_LONGITUDE_WEST, 0)
+            ): NumberSelector(longitude),
+            vol.Required(
+                CONF_LATITUDE_SOUTH, default=defaults.get(CONF_LATITUDE_SOUTH, 0)
+            ): NumberSelector(latitude),
+            vol.Required(
+                CONF_LONGITUDE_EAST, default=defaults.get(CONF_LONGITUDE_EAST, 0)
+            ): NumberSelector(longitude),
+            vol.Required(
+                CONF_LATITUDE_NORTH, default=defaults.get(CONF_LATITUDE_NORTH, 0)
+            ): NumberSelector(latitude),
+            vol.Required(
+                CONF_ZONE_RADIUS, default=defaults.get(CONF_ZONE_RADIUS, 100)
+            ): NumberSelector(
+                NumberSelectorConfig(min=1, max=100000, step=1, mode="box")
+            ),
             vol.Required(CONF_ENABLE_MAP_ENTITIES, default=True): BooleanSelector(),
             vol.Required(CONF_INCLUDE_CLASS_B, default=True): BooleanSelector(),
             vol.Optional(CONF_VESSEL_WATCHLIST, default=""): TextSelector(),
@@ -82,6 +98,8 @@ def _validate_input(user_input: dict[str, Any]) -> str | None:
         return "invalid_bounds"
     if user_input[CONF_LONGITUDE_WEST] >= user_input[CONF_LONGITUDE_EAST]:
         return "invalid_bounds"
+    if float(user_input.get(CONF_ZONE_RADIUS, 0)) <= 0:
+        return "invalid_radius"
     if user_input.get(CONF_SEARXNG_URL) and not _valid_url(
         user_input[CONF_SEARXNG_URL]
     ):
@@ -101,6 +119,24 @@ def _clean_input(user_input: dict[str, Any]) -> dict[str, Any]:
         if item.strip()
     )
     return cleaned
+
+
+def _home_defaults(hass: Any) -> dict[str, float]:
+    """Return a small bounding box centered on the Home Assistant home zone."""
+    home = hass.states.get("zone.home")
+    attributes = home.attributes if home is not None else {}
+    latitude = float(attributes.get("latitude", hass.config.latitude))
+    longitude = float(attributes.get("longitude", hass.config.longitude))
+    radius = float(attributes.get("radius", hass.config.radius))
+    latitude_delta = radius / 111_320
+    longitude_delta = radius / (111_320 * max(cos(radians(latitude)), 0.01))
+    return {
+        CONF_LONGITUDE_WEST: longitude - longitude_delta,
+        CONF_LATITUDE_SOUTH: latitude - latitude_delta,
+        CONF_LONGITUDE_EAST: longitude + longitude_delta,
+        CONF_LATITUDE_NORTH: latitude + latitude_delta,
+        CONF_ZONE_RADIUS: radius,
+    }
 
 
 class AisShipTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -128,7 +164,9 @@ class AisShipTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title="AIS Ship Tracker", data=user_input)
 
         return self.async_show_form(
-            step_id="user", data_schema=_data_schema(), errors=errors
+            step_id="user",
+            data_schema=_data_schema(_home_defaults(self.hass)),
+            errors=errors,
         )
 
 

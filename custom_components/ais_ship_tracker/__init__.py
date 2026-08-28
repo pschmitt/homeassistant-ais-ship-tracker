@@ -21,6 +21,7 @@ from .const import (
 )
 from .coordinator import ShipPhotoCoordinator
 from .tracker import AisTrackerCoordinator
+from .zone import async_remove_zone, async_sync_zone
 
 
 @dataclass(slots=True)
@@ -74,6 +75,7 @@ async def async_setup_entry(
     """Set up AIS Ship Tracker from a config entry."""
     settings = {**entry.data, **entry.options}
     _update_config_issues(hass, entry, settings)
+    await async_sync_zone(hass, entry.entry_id, settings)
     tracker = AisTrackerCoordinator(
         hass,
         async_get_clientsession(hass),
@@ -133,3 +135,10 @@ async def async_unload_entry(
     if entry.runtime_data is not None:
         await entry.runtime_data.tracker.async_stop()
     return unload_ok
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
+) -> None:
+    """Remove integration-owned resources with the config entry."""
+    await async_remove_zone(hass, entry.entry_id)

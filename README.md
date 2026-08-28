@@ -39,6 +39,14 @@ West: 13.3125       South: 52.5198
 East: 13.3190       North: 52.5235
 ```
 
+When adding the integration, these coordinates and the target-zone radius are
+initially derived from Home Assistant's `zone.home`. They remain fully editable
+in the options flow. The integration also creates a passive
+`zone.ais_ship_tracking_area` centered on the configured bounding box. Its
+radius is configurable in metres and it is safe to use on maps without
+affecting presence tracking. The zone is updated when the integration is
+reconfigured and removed when the integration is removed.
+
 Class B transponders, an MMSI watchlist, and map entity retention can be
 changed later from the integration's options.
 
@@ -54,6 +62,8 @@ The integration creates these entities unconditionally:
   the first detection or restored state, with AIS data in its attributes.
 - `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
   state.
+- `zone.ais_ship_tracking_area` — passive, configurable-radius representation
+  of the AIS target area for Home Assistant map cards.
 - `event.ais_ship_tracker_last_ship_updated` — emits `ship_updated` for each
   newly detected MMSI.
 

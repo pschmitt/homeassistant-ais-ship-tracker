@@ -218,7 +218,10 @@ class AisTrackerCoordinator:
                     WSMsgType.CLOSE,
                     WSMsgType.ERROR,
                 }:
-                    raise ConnectionError("AISStream websocket closed")
+                    raise ConnectionError(
+                        "AISStream websocket closed "
+                        f"(code={websocket.close_code}, exception={websocket.exception()})"
+                    )
                 self._purge_old_ships()
 
     def _handle_message(self, message: dict[str, Any]) -> None:
