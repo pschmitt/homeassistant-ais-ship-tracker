@@ -14,7 +14,7 @@ import threading
 from datetime import datetime, timedelta
 
 print("🚀 Starting AIS Ship Tracker...", flush=True)
-VERSION = "1.4.6"
+VERSION = "1.4.7"
 
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -124,6 +124,7 @@ except Exception as e:
 # Home Assistant API Configuration
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN")
 API_URL = "http://supervisor/core/api/states/sensor.last_passing_ship_dev" if DEV_MODE else "http://supervisor/core/api/states/sensor.last_passing_ship"
+LAST_PASSING_SHIP_FILE_PATH = "/data/last_passing_ship.json"
 
 # Dictionaries to track ships and rate limits
 seen_ships = {}
@@ -389,6 +390,8 @@ def update_ha_entity(ship_data):
             "vessel_class": ship_data.get("vessel_class", "Unknown")
         }
     }
+
+    persist_last_passing_ship(payload)
     
     try:
         data = json.dumps(payload).encode('utf-8')
@@ -399,6 +402,67 @@ def update_ha_entity(ship_data):
             
     except urllib.error.URLError as e:
         log(f"Failed to update Home Assistant API: {e}")
+
+
+def persist_last_passing_ship(payload):
+    """Persist the latest last-passing-ship payload atomically."""
+    temporary_path = f"{LAST_PASSING_SHIP_FILE_PATH}.{os.getpid()}.tmp"
+    try:
+        with open(temporary_path, "w", encoding="utf-8") as file:
+            json.dump(payload, file, ensure_ascii=False)
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary_path, LAST_PASSING_SHIP_FILE_PATH)
+    except OSError as error:
+        log(f"⚠️ Failed to persist last passing ship: {error}")
+        try:
+            os.remove(temporary_path)
+        except OSError:
+            pass
+
+
+def restore_last_passing_ship():
+    """Restore the last passing ship into Home Assistant after a restart."""
+    if not SUPERVISOR_TOKEN or not os.path.exists(LAST_PASSING_SHIP_FILE_PATH):
+        return
+
+    try:
+        with open(LAST_PASSING_SHIP_FILE_PATH, encoding="utf-8") as file:
+            payload = json.load(file)
+        attributes = payload.get("attributes")
+        if (
+            not isinstance(payload, dict)
+            or not payload.get("state")
+            or not isinstance(attributes, dict)
+            or not attributes.get("mmsi")
+        ):
+            raise ValueError("snapshot is missing required vessel data")
+    except (OSError, json.JSONDecodeError, ValueError, AttributeError) as error:
+        log(f"⚠️ Ignoring invalid last-passing-ship snapshot: {error}")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {SUPERVISOR_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    for attempt in range(3):
+        try:
+            req = urllib.request.Request(
+                API_URL, data=data, headers=headers, method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=10):
+                pass
+            log(
+                "↩️ Restored last passing ship "
+                f"{payload['state']} (MMSI: {attributes['mmsi']})"
+            )
+            return
+        except urllib.error.URLError as error:
+            if attempt == 2:
+                log(f"⚠️ Failed to restore last passing ship: {error}")
+                return
+            time.sleep(5)
 
 # Background Monitoring State
 api_monitor_state = {
@@ -857,6 +921,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, graceful_shutdown)
 
     sync_state_on_startup()
+    restore_last_passing_ship()
         
     try:
         while True:

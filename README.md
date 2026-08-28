@@ -122,7 +122,7 @@ ___
 
 ## 📊 Entity Attributes & Telemetry
 
-The add-on creates and updates a single entity by default: `sensor.last_passing_ship`. The main state of this sensor will always be the name of the most recently spotted ship. 
+The add-on creates and updates a single entity by default: `sensor.last_passing_ship`. The main state of this sensor will always be the name of the most recently spotted ship. The complete payload is persisted in the add-on data directory and restored after Home Assistant restarts.
 
 Attached to this entity is a set of attributes extracted directly from the vessel's radio transponder. Where you enable `Multi-ship Tracking`, all ship entities are created with the attributes below. 
 

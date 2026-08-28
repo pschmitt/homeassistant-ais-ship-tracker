@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.7
+* [Feature] Persist the complete `sensor.last_passing_ship` payload in the add-on data directory and restore it after Home Assistant restarts.
+
 ## 1.4.6
 * [Fix] Enhanced reconnection logic after a couple of recent AISStream outages. The app should now gracefully reconnect when the service comes back up. 
 * [Fix] Fixed accuracy of outage status for sensor.ais_connection_status entity
