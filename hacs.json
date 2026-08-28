@@ -1,0 +1,9 @@
+{
+  "name": "AIS Ship Tracker",
+  "content_in_root": false,
+  "domains": [
+    "ais_ship_photo"
+  ],
+  "homeassistant": "2026.8.0",
+  "render_readme": true
+}
