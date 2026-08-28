@@ -7,7 +7,6 @@ from typing import Any
 from homeassistant.components.event import EventEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.event import async_track_state_change_event
 
 from . import AisShipTrackerConfigEntry
 from .entity import AisShipTrackerEntity
@@ -19,7 +18,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the last-ship-updated event entity."""
-    async_add_entities([LastShipUpdatedEvent(hass, entry)])
+    async_add_entities([LastShipUpdatedEvent(entry)])
 
 
 class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
@@ -29,53 +28,45 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
     _attr_icon = "mdi:ferry"
     _attr_translation_key = "last_ship_updated"
 
-    def __init__(self, hass: HomeAssistant, entry: AisShipTrackerConfigEntry) -> None:
+    def __init__(self, entry: AisShipTrackerConfigEntry) -> None:
         """Initialize the event entity."""
-        coordinator = entry.runtime_data
-        assert coordinator is not None
-        super().__init__(coordinator, entry)
-        self._hass = hass
+        runtime = entry.runtime_data
+        assert runtime is not None
+        self.coordinator = runtime.tracker
+        super().__init__(entry)
         self._attr_unique_id = "last_ship_updated"
         self._last_mmsi: str | None = None
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to the tracked vessel entity."""
         await super().async_added_to_hass()
-        state = self._hass.states.get(self.coordinator.vessel_entity)
-        if state is not None:
-            self._last_mmsi = self._mmsi(state.attributes)
-        self.async_on_remove(
-            async_track_state_change_event(
-                self._hass,
-                [self.coordinator.vessel_entity],
-                self._state_changed,
-            )
-        )
+        if self.coordinator.last_ship is not None:
+            self._last_mmsi = self._mmsi(self.coordinator.last_ship)
+        self.async_on_remove(self.coordinator.async_add_listener(self._tracker_updated))
 
     @callback
-    def _state_changed(self, event: Any) -> None:
+    def _tracker_updated(self) -> None:
         """Trigger for a newly recorded vessel."""
-        new_state = event.data.get("new_state")
-        if new_state is None:
+        ship = self.coordinator.last_ship
+        if ship is None:
             return
-        mmsi = self._mmsi(new_state.attributes)
+        mmsi = self._mmsi(ship)
         if not mmsi or mmsi == self._last_mmsi:
             return
         self._last_mmsi = mmsi
-        attributes = new_state.attributes
         self._trigger_event(
             "ship_updated",
             {
-                "ship_name": attributes.get("ship_name") or new_state.state,
+                "ship_name": ship.get("ship_name"),
                 "mmsi": mmsi,
-                "latitude": attributes.get("latitude"),
-                "longitude": attributes.get("longitude"),
-                "speed_knots": attributes.get("speed_knots"),
-                "course": attributes.get("course"),
-                "heading": attributes.get("heading"),
-                "navigational_status": attributes.get("navigational_status"),
-                "vessel_class": attributes.get("vessel_class"),
-                "spotted_time": attributes.get("spotted_time"),
+                "latitude": ship.get("latitude"),
+                "longitude": ship.get("longitude"),
+                "speed_knots": ship.get("speed_knots"),
+                "course": ship.get("course"),
+                "heading": ship.get("heading"),
+                "navigational_status": ship.get("navigational_status"),
+                "vessel_class": ship.get("vessel_class"),
+                "spotted_time": ship.get("spotted_time"),
             },
         )
 

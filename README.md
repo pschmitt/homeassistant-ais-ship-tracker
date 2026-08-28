@@ -1,312 +1,76 @@
-# 🚢 AIS Ship Tracker for Home Assistant
+# AIS Ship Tracker for Home Assistant
 
-This Home Assistant add-on allows you to draw an invisible box over any body of water in the world where you wish to track shipping traffic. Whenever a ship sails into that box, the add-on will intercept its radio broadcast and instantly push the ship's telemetry directly into a Home Assistant entity.
+AIS Ship Tracker is a Home Assistant custom integration for monitoring vessels
+inside a configurable geographic bounding box using the live
+[AISStream.io](https://aisstream.io) WebSocket service. It runs entirely as a
+Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 
-It creates a sensor entity (`sensor.last_passing_ship`) that you can use to trigger notifications, plot on a map, sound a horn, or just keep a log of maritime traffic outside your window.
+## Features
 
-You can also track multiple vessels and show them on a map. The [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) custom card from HACS is required for dynamically displaying these vessels. 
+- Persistent `Last Passing Ship` state, restored after Home Assistant restarts.
+- Connection status and an event fired when a new vessel becomes the last seen vessel.
+- Optional per-vessel sensors for map cards.
+- Optional SearXNG image search, preferring MarineTraffic and falling back to
+  VesselFinder, exposed as a `camera` entity.
+- Config flow and options flow for the API key, bounding box, filters, map
+  retention, and optional photo lookup.
+- Repairs for AISStream authentication and SearXNG configuration failures.
+- Diagnostics with credentials redacted.
 
-The repository also contains the companion Home Assistant custom integration in
-`custom_components/ais_ship_tracker`. It provides the branded
-`camera.last_passing_ship_photo` entity, looks up vessel photos through a
-configured SearXNG instance, prefers MarineTraffic results, and falls back to
-VesselFinder. The camera is attached to a dedicated service device and exposes
-options, repairs, and diagnostics.
+## Installation
 
-For a local Home Assistant installation, add this repository as the
-`custom_components-local/ais_ship_tracker` source and link
-`custom_components/ais_ship_tracker` into Home Assistant's custom-components
-directory. The add-on and custom integration intentionally keep separate
-configuration flows: the add-on receives AIS data, while the camera consumes
-the resulting `sensor.last_passing_ship` entity.
+Install the integration with HACS as a custom repository, or clone this
+repository and copy `custom_components/ais_ship_tracker` into Home Assistant's
+`custom_components` directory. The repository is named
+`homeassistant-ais-ship-tracker` to match the other local Home Assistant
+components.
 
-**Dashboard Example**
+Restart Home Assistant and add **AIS Ship Tracker** from
+**Settings → Devices & services → Add integration**.
 
-<img width="640" height="441" alt="Dashboard Example" src="https://github.com/user-attachments/assets/1a4e671f-60b4-4144-b426-e8ffdf0148a9" />
+## Configuration
 
----
+Create an API key at [AISStream.io](https://aisstream.io). The config flow
+accepts the south-west and north-east corners of the area to monitor. Values
+are decimal degrees; for example, a small Spree section can be configured as:
 
-**More Info - Attributes** 
-
-<img width="196" height="320" alt="More Info Attributes" src="https://github.com/user-attachments/assets/90077aad-f351-4145-8c90-4f2bdc167eb4" />
-
-
----
-
-## 🛠️ Installation
-
-To install this add-on, you need to add this repository to your Home Assistant add-on Store. 
-
-1. Open your Home Assistant dashboard and navigate to **Settings** > **add-ons**.
-2. Click the **add-on Store** button in the bottom right corner.
-3. Click the **three vertical dots** (⋮) in the top right corner and select **Repositories**.
-4. Paste the URL of this GitHub repository into the box and click **add**.
-5. Close the pop-up and refresh the page. 
-6. Scroll down to the bottom of the add-on Store, find the **AIS Ship Tracker**, and click **Install**.
-7. Enter you API key and bounding box co-ordinates. Steps in section #2 and #3
-
-*Optional steps for showing multiple ships on a map*
-
-8. Install [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) to allow you to have a map card with multiple ship entities 
-9. Install [Card-mod](https://github.com/thomasloven/lovelace-card-mod) to allow you to make the ship icons on the map smaller
-10. There is more info on this in the docs below including the yaml to configure a multi-ship map.
-
----
-
-## 🔑 Getting Your API Key
-
-This add-on relies on [AISStream.io](https://aisstream.io), a free, community-driven network of radio receivers. To use it, you need a personal API key.
-
-1. Go to [aisstream.io](https://aisstream.io) and sign in.
-2. In your account, you can request an **API Key** (a long string of letters and numbers).
-3. Copy this key into the add-on's Configuration tab in Home Assistant.
-
----
-
-## 🗺️ Drawing Your Bounding Box
-
-You need to tell the add-on exactly where to look. To do this, imagine drawing a rectangle over a map. The add-on needs to know the exact GPS coordinates of two opposite corners: the **Bottom-Left** and the **Top-Right**. The easiest way to do this is with BBoxFinder. 
-
-**How to find your coordinates using bboxfinder:**
-1. Go to [bboxfinder.com](http://bboxfinder.com).
-2. Zoom in on the area of water you want to monitor.
-3. Click the **rectangle tool** (the small box icon on the left of the map) and draw your tracking zone.
-4. Look at the very bottom of the screen. You will see a string of four numbers next to the word **Box** (e.g., `-2.718, 51.423, -2.521, 51.501`).
-5. Paste the numbers into the boxes in order in the add-on config:
-   * **First number:** Paste into `Bottom-Left Longitude (West)`
-   * **Second number:** Paste into `Bottom-Left Latitude (South)`
-   * **Third number:** Paste into `Top-Right Longitude (East)`
-   * **Fourth number:** Paste into `Top-Right Latitude (North)`
-
----
-## 📍 Multi-Ship Tracking (Map Card)
-You can track multiple ships simultaneously for viewing on a map. The [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) custom card from HACS is required for dynamically displaying these vessels. The official HA Map card will not populate dynamically. Given this add on creates entities for ships as they enter our bounding box, it needs this alternative map solution.  
-[Card-mod](https://github.com/thomasloven/lovelace-card-mod) is also recommended to make the ship icons smaller using CSS.
-
-When the *"Multi-Ship Tracking"* configuration is enabled:
-* Every ship that enters your bounding box will automatically generate a dedicated entity formatted as `sensor.ais_ship_{mmsi}`.
-* These entities dynamically update their GPS co-ordinates and include an icon indicating their current navigational status.
-* Ship Timeout: To keep your map clean, ships that stop broadcasting will have their co-ordinates cleared after a specified period of inactivity (default is 30 minutes, configurable via "Ship Timeout").
-* Clear Ships on Startup: You can configure the add-on to automatically purge all existing ship entities from the map whenever the add-on is restarted.
-
-Example YAML for a solid map view using auto-entities and card-mod:
-```yaml
-type: custom:auto-entities
-show_empty: false
-card:
-  type: map
-  title: null
-  dark_mode: false
-  cluster: false
-  card_mod:
-    style:
-      ha-map $ ha-entity-marker $: |
-        .marker {
-          height: 30px !important;
-          width: 30px !important;
-        }
-filter:
-  include:
-    - entity_id: sensor.ais_ship_*
-      options:
-        label_mode: icon
+```text
+West: 13.3125       South: 52.5198
+East: 13.3190       North: 52.5235
 ```
 
-<img width="255" height="248" alt="Map View" src="https://github.com/user-attachments/assets/4df277d1-bc7f-4bc7-a8ae-e9ffec2d9622" />
+Class B transponders, an MMSI watchlist, and map entity retention can be
+changed later from the integration's options.
 
-### Icon Reference
+SearXNG is optional. If no URL is configured, no photo camera is created. If
+configured, the integration searches for the vessel name and MMSI and serves
+the selected image through Home Assistant's camera entity.
 
-The ship's icon on the map is based on its current navigational status. This status is also available as an attribute. If a status is not defined by the vessel, it defaults to a standard ferry icon.
+## Entities
 
-| Icon | Navigational Status | MDI Name |
-| :---: | :--- | :--- |
-| <img src="https://api.iconify.design/mdi/ferry.svg" width="20"> | Under way using engine | `mdi:ferry` |
-| <img src="https://api.iconify.design/mdi/anchor.svg" width="20"> | At anchor | `mdi:anchor` |
-| <img src="https://api.iconify.design/mdi/pier.svg" width="20"> | Moored | `mdi:pier` |
-| <img src="https://api.iconify.design/mdi/fish.svg" width="20"> | Engaged in fishing | `mdi:fish` |
-| <img src="https://api.iconify.design/mdi/sail-boat.svg" width="20"> | Under way sailing | `mdi:sail-boat` |
-| <img src="https://api.iconify.design/mdi/lifebuoy.svg" width="20"> | Aground | `mdi:lifebuoy` |
-| <img src="https://api.iconify.design/mdi/lifebuoy.svg" width="20"> | Not under command | `mdi:lifebuoy` |
-| <img src="https://api.iconify.design/mdi/lifebuoy.svg" width="20"> | Restricted manoeuvrability | `mdi:lifebuoy` |
-| <img src="https://api.iconify.design/mdi/lifebuoy.svg" width="20"> | Constrained by her draught | `mdi:lifebuoy` |
-| <img src="https://api.iconify.design/mdi/lifebuoy.svg" width="20"> | AIS-SART active | `mdi:lifebuoy` |
-| <img src="https://api.iconify.design/mdi/ferry.svg" width="20"> | Not defined / Unknown | `mdi:ferry` |
+The integration creates these entities unconditionally:
 
-___
+- `sensor.ais_ship_tracker_last_passing_ship` — vessel name, unavailable until
+  the first detection or restored state, with AIS data in its attributes.
+- `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
+  state.
+- `event.ais_ship_tracker_last_ship_updated` — emits `ship_updated` for each
+  newly detected MMSI.
 
-## 📊 Entity Attributes & Telemetry
+When map entities are enabled, each active vessel also gets a sensor named
+`sensor.ais_ship_<mmsi>` with latitude, longitude, speed, heading, and other
+AIS attributes. These entities become unavailable after the configured
+timeout and are recreated as needed.
 
-The add-on creates and updates a single entity by default: `sensor.last_passing_ship`. The main state of this sensor will always be the name of the most recently spotted ship. The complete payload is persisted in the add-on data directory and restored after Home Assistant restarts.
+When SearXNG is configured, the integration additionally creates
+`camera.ais_ship_tracker_last_passing_ship_photo`. It includes the provider,
+source URL, vessel name, and MMSI as attributes. The dashboard can link to the
+vessel's [MarineTraffic page](https://www.marinetraffic.com/).
 
-Attached to this entity is a set of attributes extracted directly from the vessel's radio transponder. Where you enable `Multi-ship Tracking`, all ship entities are created with the attributes below. 
+## License and branding
 
-The following update every ~10 seconds for ships underway and ~3 minutes for ships at anchor/moored
-* **`mmsi`**: The Maritime Mobile Service Identity. This is a unique 9-digit number assigned to the vessel.
-* **`spotted_time`**: The exact local time the transponder data was received.
-* **`latitude`**: The exact GPS latitude coordinate.
-* **`longitude`**: The exact GPS longitude coordinate.
-* **`speed_knots`**: The vessel's current speed over ground.
-* **`course`**: The vessel's direction of travel in degrees.
-* **`heading`**: The true direction the ship's bow is pointing in degrees.
-* **`navigational_status`**: The current operational state of the vessel (e.g., "Under way using engine", "At anchor", "Moored").
-* **`vessel_class`**: The class of the current vessel, either Class A (generally for commercial vessels) or Class B (generally for leisure vessels).
+Copyright © 2026 Philipp Schmitt.
 
-The following update every ~6 minutes for ships underway and at anchor/moored:
-
-* **`ship_length`**: The total physical length of the vessel in metres.
-* **`imo_number`**: The unique, permanent 7-digit identifier assigned to the hull.
-* **`call_sign`**: The vessel's unique alphanumeric maritime radio call sign.
-* **`vessel_type`**: The categorisation of the ship, such as "Cargo Ship", "Pleasure Craft", or "Search and Rescue".
-* **`destination`**: The intended port or location the vessel is sailing towards. Note this is manually updated by crew so can vary in quality and accuracy. 
-* **`eta`**: The projected arrival time at the destination, formatted as DD/MM HH:MM UTC. Note this is manually updated by crew so can vary in quality and accuracy. 
-
-
-
-**Example of how this appears:**
-
-```yaml
-state:
-  translated: "11.9"
-  raw: "11.9"
-  last_changed: "2026-04-23T15:06:23.721Z"
-  last_updated: "2026-04-23T15:06:23.721Z"
-attributes:
-  friendly_name: GOLDEN CALYPSO
-  ship_name: GOLDEN CALYPSO
-  mmsi: "352006081"
-  spotted_time: "2026-04-23 16:06:23"
-  latitude: 51.00354
-  longitude: 1.4393983333333333
-  speed_knots: 11.9
-  course: 227.8
-  heading: 227
-  navigational_status: Under way using engine
-  vessel_class: Class A
-  icon: mdi:ferry
-  destination: GBFAW
-  eta: 24/04 01:00 UTC
-  ship_length: 156
-  imo_number: "1037713"
-  call_sign: "3E8544"
-  vessel_type: Tanker
-```
-
-**Note:** When `Multi-ship Tracking` is enabled, entities are created for every ship that enters the bounding box. After the `Ship Entity Timeout` expires (default 30 minutes), ships will be removed from the map **but** they will remain in your Home Assistant entity list until the next Home Assistant restart. This is due to how the Home Assistant REST API works, in that you can only create and modify entities, but not delete them. 
-
----
-## 🛠️ Config Specifics
-
-* **`API Key`**: The free API key you need to generate from [AISStream.io](https://aisstream.io).
-* **`Bounding Box - Bottom-Left Longitude (West)`**: Left edge of the bounding box and the first number from bboxfinder co-ordinates.
-* **`Bounding Box - Bottom-Left Latitude (South)`**: Bottom edge of the bounding box and the second number from bboxfinder co-ordinates.
-* **`Bounding Box - Top-Right Longitude (East)`**: Right edge of the bounding box and the third number from bboxfinder co-ordinates.
-* **`Bounding Box - Top-Right Latitude (North)`**: Top edge of the bounding box and the fourth number from bboxfinder co-ordinates.
-* **`Include Class B Vessels`**: Class B vessels (typically leisure craft) will be shown
-* **`Multi-Ship Tracking`**: Creates new entities for all ships that enter the bounding box in the format `sensor.ais_ship_{mmsi}`
-* **`MMSI Filter`**: Only shows ships with the MMSI(s) you specify. Separate each MMSI with a comma.
-* **`Ship Entity Timeout (Minutes)`**: How long before ships are cleared from the map after receiving no updates.
-* **`Clear Ship Entities on Startup`**: Clears all ship entities from the map when add-on starts.
-* **`API Monitoring`**: Enable API connection status monitoring entity.
-* **`API Monitoring URL`**: URL to check for API uptime and connectivity. Defaults to `https://aisuptime.buttermilkgreen.fyi/api/v1/status?simple=true` (hidden in the configuration UI for normal installations).
-
-
----
-
-## ⚠️ API Reliability
-
-Please keep in mind that AISStream is a **free, community-supported service**. 
-
-* **Dropped Connections:** The server may occasionally drop the connection to your add-on if it gets too busy. The add-on will try to reconnect without you having to do anything. Look in the add-on logs if you suspect constant connectivity issues.
-* **Ghost Ships:** You may sometimes see `Unknown Ship Name`. This usually happens because a smaller boat (like a yacht or fishing vessel) has not programmed its name into its radio transponder, or because the API simply hasn't caught the broadcasted name yet. This is normal behaviour.
-* **Outages:** Sometimes the add-on appears to be connected in the logs, but no ships are being reported. You can sometimes check for ongoing API service issues here (it isnt a live status page and relies on users reporting issues): [AISStream Issues](https://github.com/aisstream/issues/issues).
-
-The add-on does show connectivity state via entity `sensor.ais_connection_status` and if in doubt, check the logs. 
-
-By default, the add-on supports monitoring an uptime API endpoint (e.g. to track the status of the AIS uptime service) and showing its reported status directly on the connection status entity. 
-
-* **API Uptime Monitoring**: This is enabled by default. The connection status entity will reflect the status fetched from the API endpoint. The underlying WebSocket connection status is kept available under the `websocket_status` attribute. If disabled, the entity will show connectivity status relative to your connection to the AISStream websocket. 
-* **Custom URL**: You can provide your own status endpoint URL (useful if hosting the uptime service yourself or for local testing/offline environments).
-* **Anonymous Telemetry**: When API Uptime Monitoring is enabled, the add-on sends anonymous telemetry payload (including  version, configuration flags, a persistent random UUID, and the number of monitored vessels on your watchlist) to the status endpoint. This helps understanding of user deployment size and configuration choices. No private information, API keys, or GPS coordinates are ever transmitted. You can disable telemetry entirely by turning off API Uptime Monitoring in the configuration.
-
-### Example telemetry payload:
-
-```json
-{
-  "uuid": "7a892b11-d144-489e-8c38-e6c1dfa0134f",
-  "version": "1.4.5",
-  "enable_map_entities": false,
-  "include_class_b": true,
-  "clear_map_on_startup": false,
-  "map_timeout_minutes": 30,
-  "enable_api_monitoring": true,
-  "watchlist_count": 0
-}
-```
-
-
----
-
-## 📱 Creating an Alert Automation
-
-
-The best approach for triggering an automation when new ships enter the bounding box is to use the **`mmsi`** attribute. Every ship has a unique MMSI number, so this is guaranteed to change with every single vessel.
-
-Here is an example YAML automation that utilises the telemetry data. Replace the `notify.notify` action with your preferred notification service. 
-
-```yaml
-alias: Ship Alerts
-description: Triggers a notification whenever a unique MMSI enters the tracking zone.
-triggers:
-  - entity_id:
-      - sensor.last_passing_ship
-    trigger: state
-    attribute: mmsi # <--- Only fires when the unique MMSI changes
-conditions:
-  - condition: template
-    value_template: "{{ trigger.to_state.state not in ['unavailable', 'unknown'] }}"
-actions:
-  - data:
-      title: 🚢 Ship Spotted: {{ trigger.to_state.state }}
-      message: >
-        MMSI: {{ trigger.to_state.attributes.mmsi }}
-        Speed: {{ trigger.to_state.attributes.speed_knots }} knots
-        Status: {{ trigger.to_state.attributes.navigational_status }}
-        Time: {{ trigger.to_state.attributes.spotted_time }}
-    action: notify.notify 
-mode: single
-```
-
-**Tip:** Do not set your automation to trigger when the ship's *name* changes. If two "Unknown Ship Name" vessels pass by in a row, the state doesn't change, and Home Assistant will ignore the second ship. 
-
-
----
-## ⛵️ Vessel Type Mapping
-
-The `vessel_type` attribute comes from AISStream as a number, which is mapped to the particular vessel. Below are the possible variations. Note that the `vessel_type` attribute in the entity is the **Vessel Type Name**, not the Vessel Type Number. Any automations need to be against the name. 
-
-| Vessel Type Number | Vessel Type Name |
-| :--- | :--- |
-| 20-29 | Wing in ground (WIG) |
-| 30 | Fishing |
-| 31-32 | Towing |
-| 33 | Dredging |
-| 34 | Diving Ops |
-| 35 | Military Ops |
-| 36 | Sailing |
-| 37 | Pleasure Craft |
-| 40-49 | High-Speed Craft |
-| 50 | Pilot Vessel |
-| 51 | Search and Rescue |
-| 52 | Tug |
-| 53 | Port Tender |
-| 54 | Anti-pollution Equipment |
-| 55 | Law Enforcement |
-| 60-69 | Passenger Ship |
-| 70-79 | Cargo Ship |
-| 80-89 | Tanker |
-| 90-99 | Other |
-
----
-## 🐛 Issues or feedback?
-
-Please raise a Github issue.  
+This project is licensed under the GNU General Public License v3.0 or later.
+The Home Assistant integration branding is included in
+`custom_components/ais_ship_tracker/brand`.

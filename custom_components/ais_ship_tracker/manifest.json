@@ -3,10 +3,10 @@
   "name": "AIS Ship Tracker",
   "codeowners": ["@pschmitt"],
   "config_flow": true,
-  "documentation": "https://github.com/pschmitt/ais_ship_tracker#home-assistant-custom-integration",
+  "documentation": "https://github.com/pschmitt/homeassistant-ais-ship-tracker",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/pschmitt/ais_ship_tracker/issues",
+  "issue_tracker": "https://github.com/pschmitt/homeassistant-ais-ship-tracker/issues",
   "loggers": [
     "custom_components.ais_ship_tracker"
   ],

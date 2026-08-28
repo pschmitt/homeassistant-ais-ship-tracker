@@ -7,9 +7,6 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
 from .const import CONF_SEARXNG_URL, DOMAIN
-from .coordinator import ShipPhotoCoordinator
-
-
 class AisShipTrackerEntity(Entity):
     """Base entity for the AIS Ship Tracker service device."""
 
@@ -17,12 +14,10 @@ class AisShipTrackerEntity(Entity):
 
     def __init__(
         self,
-        coordinator: ShipPhotoCoordinator,
         entry: ConfigEntry,
     ) -> None:
         """Initialize an AIS Ship Tracker entity."""
         super().__init__()
-        self.coordinator = coordinator
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
@@ -33,11 +28,4 @@ class AisShipTrackerEntity(Entity):
                 entry.options.get(CONF_SEARXNG_URL)
                 or entry.data.get(CONF_SEARXNG_URL)
             ),
-        )
-
-    async def async_added_to_hass(self) -> None:
-        """Subscribe the entity to photo lookup updates."""
-        await super().async_added_to_hass()
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
         )

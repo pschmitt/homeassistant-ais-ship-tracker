@@ -9,6 +9,7 @@ import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlencode, urljoin
+from typing import TYPE_CHECKING
 
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant, callback
@@ -17,6 +18,9 @@ from homeassistant.helpers import issue_registry as ir
 from .const import DOMAIN, ISSUE_SEARXNG_AUTHENTICATION, ISSUE_SEARXNG_ENDPOINT
 
 _LOGGER = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from .tracker import AisTrackerCoordinator
 
 _MARINE_TRAFFIC_PROXY = re.compile(
     r"/image_proxy\?url=https%3A%2F%2Fwww\.marinetraffic\.com%2FgetAssetDefaultPhoto"
@@ -37,7 +41,7 @@ class ShipPhotoCoordinator:
         hass: HomeAssistant,
         session: ClientSession,
         searxng_url: str,
-        vessel_entity: str,
+        tracker: AisTrackerCoordinator,
         username: str | None,
         password: str | None,
         entry_id: str,
@@ -45,7 +49,7 @@ class ShipPhotoCoordinator:
         self.hass = hass
         self.session = session
         self.searxng_url = searxng_url.rstrip("/")
-        self.vessel_entity = vessel_entity
+        self.tracker = tracker
         self._auth = BasicAuth(username, password) if username else None
         self.entry_id = entry_id
         self._image: bytes | None = None
@@ -97,10 +101,10 @@ class ShipPhotoCoordinator:
     @property
     def needs_refresh(self) -> bool:
         """Return whether the current entity needs a lookup."""
-        state = self.hass.states.get(self.vessel_entity)
-        if state is None:
+        ship = self.tracker.last_ship
+        if ship is None:
             return False
-        mmsi = str(state.attributes.get("mmsi", ""))
+        mmsi = str(ship.get("mmsi", ""))
         if mmsi != self._mmsi:
             return True
         return (
@@ -124,15 +128,13 @@ class ShipPhotoCoordinator:
         """Search for and cache the current vessel photo."""
         if not self.searxng_url:
             return
-        state = self.hass.states.get(self.vessel_entity)
-        if state is None:
-            self._set_error(f"Vessel entity {self.vessel_entity} is unavailable")
+        ship = self.tracker.last_ship
+        if ship is None:
+            self._set_error("No vessel has been detected yet")
             return
 
-        vessel_name = str(
-            state.attributes.get("ship_name") or state.state or "Unknown ship"
-        )
-        mmsi = str(state.attributes.get("mmsi") or "")
+        vessel_name = str(ship.get("ship_name") or "Unknown ship")
+        mmsi = str(ship.get("mmsi") or "")
         if not mmsi:
             self._set_error("Tracked vessel has no MMSI")
             return
@@ -202,7 +204,7 @@ class ShipPhotoCoordinator:
                 self._last_updated = datetime.now(UTC)
                 _LOGGER.debug(
                     "Updated %s photo for %s (%s) via %s",
-                    self.vessel_entity,
+                    self.tracker.entry_id,
                     vessel_name,
                     mmsi,
                     provider,

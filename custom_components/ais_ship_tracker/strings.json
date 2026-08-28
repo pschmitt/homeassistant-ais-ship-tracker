@@ -3,14 +3,24 @@
     "step": {
       "user": {
         "title": "AIS Ship Tracker",
-        "description": "Track an AIS vessel and optionally search SearXNG for its photo.",
+        "description": "Track vessels in a bounding box and optionally search SearXNG for photos.",
         "data": {
+          "api_key": "AISStream API key",
+          "longitude_west": "West longitude",
+          "latitude_south": "South latitude",
+          "longitude_east": "East longitude",
+          "latitude_north": "North latitude",
+          "enable_map_entities": "Create map vessel entities",
+          "include_class_b": "Include Class B transponders",
+          "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+          "map_timeout_minutes": "Map vessel timeout (minutes)",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password",
-          "vessel_entity": "AIS vessel entity"
+          "searxng_password": "SearXNG password"
         },
         "error": {
+          "invalid_api_key": "Enter an AISStream API key.",
+          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
           "invalid_url": "Enter a valid HTTP or HTTPS URL."
         }
       }
@@ -20,54 +30,71 @@
     "step": {
       "init": {
         "title": "AIS Ship Tracker settings",
-        "description": "Choose the vessel sensor and optionally configure SearXNG photo lookups.",
+        "description": "Adjust the AIS area, map entities, and optional SearXNG photo lookup.",
         "data": {
+          "api_key": "AISStream API key (leave blank to keep it)",
+          "longitude_west": "West longitude",
+          "latitude_south": "South latitude",
+          "longitude_east": "East longitude",
+          "latitude_north": "North latitude",
+          "enable_map_entities": "Create map vessel entities",
+          "include_class_b": "Include Class B transponders",
+          "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+          "map_timeout_minutes": "Map vessel timeout (minutes)",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password",
-          "vessel_entity": "AIS vessel entity"
+          "searxng_password": "SearXNG password (leave blank to keep it)"
         },
         "error": {
+          "invalid_api_key": "Enter an AISStream API key.",
+          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
           "invalid_url": "Enter a valid HTTP or HTTPS URL."
         }
       }
     }
   },
   "entity": {
+    "sensor": {
+      "last_passing_ship": {"name": "Last Passing Ship"},
+      "connection_status": {"name": "AIS Connection Status"}
+    },
     "event": {
-      "last_ship_updated": {
-        "name": "Last Ship Updated"
-      }
+      "last_ship_updated": {"name": "Last Ship Updated"}
     },
     "camera": {
-      "last_passing_ship_photo": {
-        "name": "Last Passing Ship Photo"
-      }
+      "last_passing_ship_photo": {"name": "Last Passing Ship Photo"}
     }
   },
   "issues": {
-    "vessel_entity_missing": {
-      "title": "The configured AIS vessel entity is missing",
+    "ais_authentication": {
+      "title": "AISStream authentication failed",
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker settings",
-            "description": "Select an existing vessel sensor. Leave SearXNG empty to disable photo lookups.",
+            "title": "Fix AIS Ship Tracker credentials",
+            "description": "Enter a valid AISStream API key and check the tracking settings.",
             "data": {
+              "api_key": "AISStream API key",
+              "longitude_west": "West longitude",
+              "latitude_south": "South latitude",
+              "longitude_east": "East longitude",
+              "latitude_north": "North latitude",
+              "enable_map_entities": "Create map vessel entities",
+              "include_class_b": "Include Class B transponders",
+              "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+              "map_timeout_minutes": "Map vessel timeout (minutes)",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password",
-              "vessel_entity": "AIS vessel entity"
+              "searxng_password": "SearXNG password"
             },
             "error": {
-              "invalid_url": "Enter a valid HTTP or HTTPS URL.",
-              "entity_not_found": "Select an existing Home Assistant sensor."
+              "invalid_api_key": "Enter an AISStream API key.",
+              "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
         },
-        "abort": {
-          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
-        }
+        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
       }
     },
     "invalid_searxng_url": {
@@ -78,20 +105,27 @@
             "title": "Fix AIS Ship Tracker settings",
             "description": "Enter a valid SearXNG URL or leave it empty to disable photo lookups.",
             "data": {
+              "api_key": "AISStream API key",
+              "longitude_west": "West longitude",
+              "latitude_south": "South latitude",
+              "longitude_east": "East longitude",
+              "latitude_north": "North latitude",
+              "enable_map_entities": "Create map vessel entities",
+              "include_class_b": "Include Class B transponders",
+              "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+              "map_timeout_minutes": "Map vessel timeout (minutes)",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password",
-              "vessel_entity": "AIS vessel entity"
+              "searxng_password": "SearXNG password"
             },
             "error": {
-              "invalid_url": "Enter a valid HTTP or HTTPS URL.",
-              "entity_not_found": "Select an existing Home Assistant sensor."
+              "invalid_api_key": "Enter an AISStream API key.",
+              "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
         },
-        "abort": {
-          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
-        }
+        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
       }
     },
     "searxng_authentication": {
@@ -100,22 +134,29 @@
         "step": {
           "configure": {
             "title": "Fix AIS Ship Tracker SearXNG credentials",
-            "description": "Check the SearXNG URL and credentials, or leave the URL empty to disable photo lookups.",
+            "description": "Check SearXNG credentials, or leave the URL empty to disable photo lookups.",
             "data": {
+              "api_key": "AISStream API key",
+              "longitude_west": "West longitude",
+              "latitude_south": "South latitude",
+              "longitude_east": "East longitude",
+              "latitude_north": "North latitude",
+              "enable_map_entities": "Create map vessel entities",
+              "include_class_b": "Include Class B transponders",
+              "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+              "map_timeout_minutes": "Map vessel timeout (minutes)",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password",
-              "vessel_entity": "AIS vessel entity"
+              "searxng_password": "SearXNG password"
             },
             "error": {
-              "invalid_url": "Enter a valid HTTP or HTTPS URL.",
-              "entity_not_found": "Select an existing Home Assistant sensor."
+              "invalid_api_key": "Enter an AISStream API key.",
+              "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
         },
-        "abort": {
-          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
-        }
+        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
       }
     },
     "searxng_endpoint": {
@@ -126,20 +167,27 @@
             "title": "Fix AIS Ship Tracker SearXNG URL",
             "description": "Check the SearXNG URL, or leave it empty to disable photo lookups.",
             "data": {
+              "api_key": "AISStream API key",
+              "longitude_west": "West longitude",
+              "latitude_south": "South latitude",
+              "longitude_east": "East longitude",
+              "latitude_north": "North latitude",
+              "enable_map_entities": "Create map vessel entities",
+              "include_class_b": "Include Class B transponders",
+              "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+              "map_timeout_minutes": "Map vessel timeout (minutes)",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password",
-              "vessel_entity": "AIS vessel entity"
+              "searxng_password": "SearXNG password"
             },
             "error": {
-              "invalid_url": "Enter a valid HTTP or HTTPS URL.",
-              "entity_not_found": "Select an existing Home Assistant sensor."
+              "invalid_api_key": "Enter an AISStream API key.",
+              "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
         },
-        "abort": {
-          "entry_not_found": "The AIS Ship Tracker config entry no longer exists."
-        }
+        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
       }
     }
   }

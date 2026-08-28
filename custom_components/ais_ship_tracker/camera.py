@@ -18,7 +18,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up the AIS ship photo camera."""
     del hass
-    async_add_entities([ShipPhotoCamera(entry.runtime_data, entry)])
+    assert entry.runtime_data is not None
+    assert entry.runtime_data.photo is not None
+    async_add_entities([ShipPhotoCamera(entry.runtime_data.photo, entry)])
 
 
 class ShipPhotoCamera(AisShipTrackerEntity, Camera):
@@ -33,7 +35,15 @@ class ShipPhotoCamera(AisShipTrackerEntity, Camera):
         entry: AisShipTrackerConfigEntry,
     ) -> None:
         self._attr_unique_id = "last_passing_ship_photo"
-        AisShipTrackerEntity.__init__(self, coordinator, entry)
+        self.coordinator = coordinator
+        AisShipTrackerEntity.__init__(self, entry)
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to photo lookup updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
 
     @property
     def available(self) -> bool:
