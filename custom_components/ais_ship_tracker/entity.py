@@ -1,4 +1,4 @@
-"""Shared entity helpers for AIS Ship Photo."""
+"""Shared entity helpers for AIS Ship Tracker."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from .const import CONF_SEARXNG_URL, DOMAIN
 from .coordinator import ShipPhotoCoordinator
 
 
-class AisShipPhotoEntity(Entity):
-    """Base entity for the AIS Ship Photo service device."""
+class AisShipTrackerEntity(Entity):
+    """Base entity for the AIS Ship Tracker service device."""
 
     _attr_has_entity_name = True
 
@@ -20,7 +20,7 @@ class AisShipPhotoEntity(Entity):
         coordinator: ShipPhotoCoordinator,
         entry: ConfigEntry,
     ) -> None:
-        """Initialize an AIS Ship Photo entity."""
+        """Initialize an AIS Ship Tracker entity."""
         super().__init__()
         self.coordinator = coordinator
         self._attr_device_info = DeviceInfo(
@@ -28,7 +28,7 @@ class AisShipPhotoEntity(Entity):
             name=entry.title,
             entry_type=DeviceEntryType.SERVICE,
             manufacturer="AIS Ship Tracker",
-            model="AIS Ship Photo",
+            model="AIS Ship Tracker",
             configuration_url=(
                 entry.options.get(CONF_SEARXNG_URL)
                 or entry.data.get(CONF_SEARXNG_URL)

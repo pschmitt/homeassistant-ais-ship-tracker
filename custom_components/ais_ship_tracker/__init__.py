@@ -15,7 +15,7 @@ from homeassistant.helpers.issue_registry import IssueSeverity
 from .const import CONF_SEARXNG_URL, CONF_VESSEL_ENTITY, DOMAIN, PLATFORMS
 from .coordinator import ShipPhotoCoordinator
 
-type AisShipPhotoConfigEntry = ConfigEntry[ShipPhotoCoordinator]
+type AisShipTrackerConfigEntry = ConfigEntry[ShipPhotoCoordinator]
 
 
 def _valid_url(value: str) -> bool:
@@ -68,9 +68,9 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: AisShipPhotoConfigEntry
+    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
 ) -> bool:
-    """Set up AIS Ship Photo from a config entry."""
+    """Set up AIS Ship Tracker from a config entry."""
     settings = {**entry.data, **entry.options}
     _update_config_issues(hass, entry, settings)
     coordinator = ShipPhotoCoordinator(
@@ -91,7 +91,7 @@ async def async_setup_entry(
         entry.async_create_background_task(
             hass,
             coordinator.async_refresh(force=True),
-            "ais_ship_photo_refresh",
+            "ais_ship_tracker_refresh",
         )
 
     remove_listener = async_track_state_change_event(
@@ -104,14 +104,14 @@ async def async_setup_entry(
     entry.async_create_background_task(
         hass,
         coordinator.async_refresh(),
-        "ais_ship_photo_initial_refresh",
+        "ais_ship_tracker_initial_refresh",
     )
     return True
 
 
 async def async_unload_entry(
-    hass: HomeAssistant, entry: AisShipPhotoConfigEntry
+    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
 ) -> bool:
-    """Unload AIS Ship Photo."""
+    """Unload AIS Ship Tracker."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     return unload_ok

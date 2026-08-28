@@ -1,4 +1,4 @@
-"""Repairs for AIS Ship Photo."""
+"""Repairs for AIS Ship Tracker."""
 
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ def _normalize_url(value: str) -> str:
     return value.strip().rstrip("/")
 
 
-class AisShipPhotoRepairFlow(RepairsFlow):
-    """Repair AIS Ship Photo configuration."""
+class AisShipTrackerRepairFlow(RepairsFlow):
+    """Repair AIS Ship Tracker configuration."""
 
     def __init__(self, entry_id: str) -> None:
         """Initialize the repair flow."""
@@ -93,4 +93,4 @@ async def async_create_fix_flow(
     """Create the configuration repair flow."""
     del hass, issue_id
     entry_id = str((data or {}).get("entry_id", ""))
-    return AisShipPhotoRepairFlow(entry_id)
+    return AisShipTrackerRepairFlow(entry_id)

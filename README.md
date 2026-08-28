@@ -7,7 +7,7 @@ It creates a sensor entity (`sensor.last_passing_ship`) that you can use to trig
 You can also track multiple vessels and show them on a map. The [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) custom card from HACS is required for dynamically displaying these vessels. 
 
 The repository also contains the companion Home Assistant custom integration in
-`custom_components/ais_ship_photo`. It provides the branded
+`custom_components/ais_ship_tracker`. It provides the branded
 `camera.last_passing_ship_photo` entity, looks up vessel photos through a
 configured SearXNG instance, prefers MarineTraffic results, and falls back to
 VesselFinder. The camera is attached to a dedicated service device and exposes
@@ -15,7 +15,7 @@ options, repairs, and diagnostics.
 
 For a local Home Assistant installation, add this repository as the
 `custom_components-local/ais_ship_tracker` source and link
-`custom_components/ais_ship_photo` into Home Assistant's custom-components
+`custom_components/ais_ship_tracker` into Home Assistant's custom-components
 directory. The add-on and custom integration intentionally keep separate
 configuration flows: the add-on receives AIS data, while the camera consumes
 the resulting `sensor.last_passing_ship` entity.

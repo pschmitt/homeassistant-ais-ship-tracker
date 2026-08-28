@@ -1,4 +1,4 @@
-"""SearXNG search and image-proxy handling for AIS Ship Photo."""
+"""SearXNG search and image-proxy handling for AIS Ship Tracker."""
 
 from __future__ import annotations
 

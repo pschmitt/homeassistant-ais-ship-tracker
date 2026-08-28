@@ -1,4 +1,4 @@
-"""Camera platform for AIS Ship Photo."""
+"""Camera platform for AIS Ship Tracker."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from homeassistant.components.camera import Camera
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import AisShipPhotoConfigEntry
+from . import AisShipTrackerConfigEntry
 from .coordinator import ShipPhotoCoordinator
-from .entity import AisShipPhotoEntity
+from .entity import AisShipTrackerEntity
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: AisShipPhotoConfigEntry,
+    entry: AisShipTrackerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the AIS ship photo camera."""
@@ -21,7 +21,7 @@ async def async_setup_entry(
     async_add_entities([ShipPhotoCamera(entry.runtime_data, entry)])
 
 
-class ShipPhotoCamera(AisShipPhotoEntity, Camera):
+class ShipPhotoCamera(AisShipTrackerEntity, Camera):
     """Camera showing the latest AIS vessel photo."""
 
     _attr_icon = "mdi:ferry"
@@ -30,10 +30,10 @@ class ShipPhotoCamera(AisShipPhotoEntity, Camera):
     def __init__(
         self,
         coordinator: ShipPhotoCoordinator,
-        entry: AisShipPhotoConfigEntry,
+        entry: AisShipTrackerConfigEntry,
     ) -> None:
         self._attr_unique_id = "last_passing_ship_photo"
-        AisShipPhotoEntity.__init__(self, coordinator, entry)
+        AisShipTrackerEntity.__init__(self, coordinator, entry)
 
     @property
     def available(self) -> bool:

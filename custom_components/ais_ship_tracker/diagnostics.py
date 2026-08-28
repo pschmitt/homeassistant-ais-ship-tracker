@@ -1,4 +1,4 @@
-"""Diagnostics support for AIS Ship Photo."""
+"""Diagnostics support for AIS Ship Tracker."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from . import AisShipPhotoConfigEntry
+from . import AisShipTrackerConfigEntry
 from .const import CONF_SEARXNG_URL, CONF_VESSEL_ENTITY
 
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
-    config_entry: AisShipPhotoConfigEntry,
+    config_entry: AisShipTrackerConfigEntry,
 ) -> dict[str, Any]:
-    """Return safe diagnostics for an AIS Ship Photo config entry."""
+    """Return safe diagnostics for an AIS Ship Tracker config entry."""
     del hass
     coordinator = config_entry.runtime_data
     settings = {**config_entry.data, **config_entry.options}

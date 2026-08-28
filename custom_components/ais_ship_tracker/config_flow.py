@@ -1,4 +1,4 @@
-"""Config flow for AIS Ship Photo."""
+"""Config flow for AIS Ship Tracker."""
 
 from __future__ import annotations
 
@@ -45,8 +45,8 @@ def _data_schema() -> vol.Schema:
     )
 
 
-class AisShipPhotoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for AIS Ship Photo."""
+class AisShipTrackerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for AIS Ship Tracker."""
 
     VERSION = 1
 
@@ -54,7 +54,7 @@ class AisShipPhotoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlowWithReload:
         """Return the options flow for an existing config entry."""
-        return AisShipPhotoOptionsFlow()
+        return AisShipTrackerOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial setup step."""
@@ -66,9 +66,9 @@ class AisShipPhotoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not _valid_url(user_input[CONF_SEARXNG_URL]):
                 errors["base"] = "invalid_url"
             else:
-                await self.async_set_unique_id("ais_ship_photo")
+                await self.async_set_unique_id("ais_ship_tracker")
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(title="AIS Ship Photo", data=user_input)
+                return self.async_create_entry(title="AIS Ship Tracker", data=user_input)
 
         return self.async_show_form(
             step_id="user",
@@ -77,11 +77,11 @@ class AisShipPhotoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
-class AisShipPhotoOptionsFlow(OptionsFlowWithReload):
-    """Handle options for an existing AIS Ship Photo entry."""
+class AisShipTrackerOptionsFlow(OptionsFlowWithReload):
+    """Handle options for an existing AIS Ship Tracker entry."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
-        """Manage AIS Ship Photo settings."""
+        """Manage AIS Ship Tracker settings."""
         errors = {}
         if user_input is not None:
             user_input[CONF_SEARXNG_URL] = _normalize_url(
