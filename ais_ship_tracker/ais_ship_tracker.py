@@ -14,7 +14,7 @@ import threading
 from datetime import datetime, timedelta
 
 print("🚀 Starting AIS Ship Tracker...", flush=True)
-VERSION = "1.4.8"
+VERSION = "1.4.9"
 
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -520,6 +520,10 @@ def update_conn_status(status, new_error=None):
     
     if not SUPERVISOR_TOKEN:
         return
+
+    # REST-created states disappear when Home Assistant restarts. Re-create
+    # the static last-ship entity while the add-on is still running.
+    ensure_last_passing_ship_entity()
 
     entity_id = "sensor.ais_connection_status_dev" if DEV_MODE else "sensor.ais_connection_status"
     api_url = f"http://supervisor/core/api/states/{entity_id}"
