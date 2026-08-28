@@ -24,5 +24,6 @@ CONF_SEARXNG_PASSWORD = "searxng_password"
 ISSUE_SEARXNG_AUTHENTICATION = "searxng_authentication"
 ISSUE_SEARXNG_ENDPOINT = "searxng_endpoint"
 ISSUE_AIS_AUTHENTICATION = "ais_authentication"
+ISSUE_AIS_CONNECTION = "ais_connection"
 
 ZONE_NAME = "AIS Ship Tracking Area"

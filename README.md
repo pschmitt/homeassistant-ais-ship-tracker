@@ -14,7 +14,7 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
   VesselFinder, exposed as a `camera` entity.
 - Config flow and options flow for the API key, bounding box, filters, map
   retention, and optional photo lookup.
-- Repairs for AISStream authentication and SearXNG configuration failures.
+- Repairs for AISStream authentication/subscription and SearXNG configuration failures.
 - Diagnostics with credentials redacted.
 
 ## Installation

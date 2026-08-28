@@ -93,6 +93,40 @@
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
               "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_radius": "Enter a positive target zone radius.",
+              "invalid_url": "Enter a valid HTTP or HTTPS URL."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+      }
+    },
+    "ais_connection": {
+      "title": "The AISStream subscription could not be established",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "Fix AIS Ship Tracker connection",
+            "description": "Check the AISStream API key and tracking settings, then try again.",
+            "data": {
+              "api_key": "AISStream API key",
+              "longitude_west": "West longitude",
+              "latitude_south": "South latitude",
+              "longitude_east": "East longitude",
+              "latitude_north": "North latitude",
+              "zone_radius": "Target zone radius (metres)",
+              "enable_map_entities": "Create map vessel entities",
+              "include_class_b": "Include Class B transponders",
+              "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+              "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "searxng_url": "SearXNG URL (optional)",
+              "searxng_username": "SearXNG username",
+              "searxng_password": "SearXNG password"
+            },
+            "error": {
+              "invalid_api_key": "Enter an AISStream API key.",
+              "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_radius": "Enter a positive target zone radius.",
               "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
@@ -125,6 +159,7 @@
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
               "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_radius": "Enter a positive target zone radius.",
               "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
@@ -157,6 +192,7 @@
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
               "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_radius": "Enter a positive target zone radius.",
               "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }
@@ -189,6 +225,7 @@
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
               "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_radius": "Enter a positive target zone radius.",
               "invalid_url": "Enter a valid HTTP or HTTPS URL."
             }
           }

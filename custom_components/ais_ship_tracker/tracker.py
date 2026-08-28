@@ -26,6 +26,7 @@ from .const import (
     CONF_VESSEL_WATCHLIST,
     DOMAIN,
     ISSUE_AIS_AUTHENTICATION,
+    ISSUE_AIS_CONNECTION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ class AisTrackerCoordinator:
         """Connect once and process AISStream messages until disconnect."""
         self._set_status("Connecting")
         async with self.session.ws_connect(
-            _AISSTREAM_URL, heartbeat=30, receive_timeout=90
+            _AISSTREAM_URL, heartbeat=30, receive_timeout=90, compress=15
         ) as websocket:
             subscription = {
                 "APIKey": self.settings[CONF_API_KEY],
@@ -201,23 +202,39 @@ class AisTrackerCoordinator:
             if self.vessel_watchlist:
                 subscription["FiltersShipMMSI"] = self.vessel_watchlist
             await websocket.send_json(subscription)
-            self.connection_error = None
-            self._clear_authentication_issue()
-            self._set_status("Connected")
+            confirmed = False
             while not self._stopping:
                 try:
                     message = await websocket.receive(timeout=60)
                 except asyncio.TimeoutError:
                     self._purge_old_ships()
                     continue
-                if message.type == WSMsgType.TEXT:
-                    self._handle_message(json.loads(message.data))
+                if message.type in {WSMsgType.TEXT, WSMsgType.BINARY}:
+                    payload = (
+                        message.data
+                        if message.type == WSMsgType.TEXT
+                        else message.data.decode("utf-8")
+                    )
+                    parsed = json.loads(payload)
+                    if parsed.get("MessageType") == "SubscriptionConfirmation":
+                        confirmed = True
+                        self.connection_error = None
+                        self._clear_authentication_issue()
+                        self._clear_connection_issue()
+                        self._set_status("Connected")
+                    else:
+                        self._handle_message(parsed)
                 elif message.type in {
                     WSMsgType.CLOSED,
                     WSMsgType.CLOSING,
                     WSMsgType.CLOSE,
                     WSMsgType.ERROR,
                 }:
+                    if (
+                        not confirmed
+                        and self.connection_status != "Authentication failed"
+                    ):
+                        self._create_connection_issue()
                     raise ConnectionError(
                         "AISStream websocket closed "
                         f"(code={websocket.close_code}, exception={websocket.exception()})"
@@ -231,6 +248,8 @@ class AisTrackerCoordinator:
             if any(word in error.lower() for word in ("api key", "unauthor", "auth")):
                 self._create_authentication_issue()
                 self._set_status("Authentication failed")
+            else:
+                self._create_connection_issue()
             self.connection_error = error
             _LOGGER.error("AISStream error: %s", error)
             return
@@ -359,4 +378,24 @@ class AisTrackerCoordinator:
     def _clear_authentication_issue(self) -> None:
         ir.async_delete_issue(
             self.hass, DOMAIN, f"{ISSUE_AIS_AUTHENTICATION}_{self.entry_id}"
+        )
+
+    def _create_connection_issue(self) -> None:
+        """Create a repair when AISStream rejects the subscription."""
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            f"{ISSUE_AIS_CONNECTION}_{self.entry_id}",
+            data={"entry_id": self.entry_id},
+            is_fixable=True,
+            is_persistent=True,
+            issue_domain=DOMAIN,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=ISSUE_AIS_CONNECTION,
+        )
+
+    def _clear_connection_issue(self) -> None:
+        """Clear the subscription repair after confirmation."""
+        ir.async_delete_issue(
+            self.hass, DOMAIN, f"{ISSUE_AIS_CONNECTION}_{self.entry_id}"
         )
