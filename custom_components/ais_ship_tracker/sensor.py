@@ -96,6 +96,7 @@ class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
     def __init__(self, entry: AisShipTrackerConfigEntry) -> None:
         """Initialize the connection sensor."""
         super().__init__(entry)
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_unique_id = "ais_connection_status"
         self.coordinator = entry.runtime_data.tracker
 
