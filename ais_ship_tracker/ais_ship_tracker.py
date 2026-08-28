@@ -404,6 +404,46 @@ def update_ha_entity(ship_data):
         log(f"Failed to update Home Assistant API: {e}")
 
 
+def ensure_last_passing_ship_entity():
+    """Create the last-passing-ship entity even before the first vessel arrives."""
+    if not SUPERVISOR_TOKEN:
+        return
+
+    headers = {"Authorization": f"Bearer {SUPERVISOR_TOKEN}"}
+    try:
+        req = urllib.request.Request(API_URL, headers=headers)
+        with urllib.request.urlopen(req, timeout=10):
+            return
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            log(f"⚠️ Failed to check last passing ship entity: HTTP {error.code}")
+            return
+    except urllib.error.URLError as error:
+        log(f"⚠️ Failed to check last passing ship entity: {error}")
+        return
+
+    payload = {
+        "state": "unavailable",
+        "attributes": {
+            "friendly_name": "Dev - Last Passing Ship" if DEV_MODE else "Last Passing Ship",
+            "icon": "mdi:ferry",
+        },
+    }
+    try:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            API_URL,
+            data=data,
+            headers={**headers, "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10):
+            pass
+        log("   ↳ HA API: Created last passing ship entity (waiting for AIS data)")
+    except urllib.error.URLError as error:
+        log(f"⚠️ Failed to create last passing ship entity: {error}")
+
+
 def persist_last_passing_ship(payload):
     """Persist the latest last-passing-ship payload atomically."""
     temporary_path = f"{LAST_PASSING_SHIP_FILE_PATH}.{os.getpid()}.tmp"
@@ -921,6 +961,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, graceful_shutdown)
 
     sync_state_on_startup()
+    ensure_last_passing_ship_entity()
     restore_last_passing_ship()
         
     try:
