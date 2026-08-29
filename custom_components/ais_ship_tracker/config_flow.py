@@ -221,7 +221,7 @@ class AisShipTrackerConfigFlow(
 ):
     """Handle a config flow for AIS Ship Tracker."""
 
-    VERSION = 3
+    VERSION = 4
 
     @staticmethod
     @callback

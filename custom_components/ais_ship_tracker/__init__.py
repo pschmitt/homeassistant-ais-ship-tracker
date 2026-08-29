@@ -14,8 +14,20 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
 
 from .areas import configured_areas
-from .const import (CONF_AREAS, CONF_SEARXNG_PASSWORD, CONF_SEARXNG_URL,
-                    CONF_SEARXNG_USERNAME, CONF_ZONE_ENTITY, DOMAIN, PLATFORMS)
+from .const import (
+    CONF_AREAS,
+    CONF_LATITUDE_NORTH,
+    CONF_LATITUDE_SOUTH,
+    CONF_LONGITUDE_EAST,
+    CONF_LONGITUDE_WEST,
+    CONF_SEARXNG_PASSWORD,
+    CONF_SEARXNG_URL,
+    CONF_SEARXNG_USERNAME,
+    CONF_ZONE_ENTITY,
+    CONF_ZONE_RADIUS,
+    DOMAIN,
+    PLATFORMS,
+)
 from .coordinator import ShipPhotoCoordinator
 from .tracker import AisTrackerCoordinator
 from .zone import async_remove_zones, async_sync_zones
@@ -41,6 +53,30 @@ async def async_migrate_entry(
         data = dict(entry.data)
         data[CONF_AREAS] = configured_areas(settings)
         hass.config_entries.async_update_entry(entry, data=data, version=3)
+    if entry.version < 4:
+        legacy_area_keys = (
+            CONF_LONGITUDE_WEST,
+            CONF_LATITUDE_SOUTH,
+            CONF_LONGITUDE_EAST,
+            CONF_LATITUDE_NORTH,
+            CONF_ZONE_RADIUS,
+        )
+        data = dict(entry.data)
+        data_areas = []
+        for area in configured_areas({**entry.data, **entry.options}):
+            migrated_area = dict(area)
+            if migrated_area.get(CONF_ZONE_ENTITY):
+                for key in legacy_area_keys:
+                    migrated_area.pop(key, None)
+            data_areas.append(migrated_area)
+        data[CONF_AREAS] = data_areas
+
+        options = dict(entry.options)
+        if CONF_AREAS in options:
+            options[CONF_AREAS] = [dict(area) for area in data_areas]
+        hass.config_entries.async_update_entry(
+            entry, data=data, options=options, version=4
+        )
     return True
 
 

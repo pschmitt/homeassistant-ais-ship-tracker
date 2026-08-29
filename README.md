@@ -34,7 +34,7 @@ Restart Home Assistant and add **AIS Ship Tracker** from
 Create an API key at [AISStream.io](https://aisstream.io). Each tracking area
 uses an existing Home Assistant `zone.*` entity as its source. The zone's
 latitude, longitude, and radius are read directly from Home Assistant; the
-integration converts that circular zone into the square north-west/south-east
+integration converts that circular zone into the square south-west/north-east
 bounding box required by AISStream. This keeps the HA zone as the single source
 of truth: changing its center or radius automatically rebuilds the AIS
 subscription.
