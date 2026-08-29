@@ -12,8 +12,8 @@
           "map_timeout_minutes": "Map vessel timeout (minutes)",
           "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
-          "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password",
+          "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+          "searxng_password": "HTTP Basic Auth password for SearXNG (optional)",
           "area_count": "Number of tracking areas"
         },
         "error": {
@@ -60,8 +60,8 @@
           "map_timeout_minutes": "Map vessel timeout (minutes)",
           "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
-          "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password (leave blank to keep it)"
+          "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+          "searxng_password": "HTTP Basic Auth password for SearXNG (leave blank to keep it)"
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
@@ -132,8 +132,8 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password"
+              "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+              "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
@@ -166,8 +166,8 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password"
+              "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+              "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
@@ -200,8 +200,8 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password"
+              "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+              "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
@@ -215,12 +215,12 @@
       }
     },
     "searxng_authentication": {
-      "title": "SearXNG authentication failed",
+      "title": "SearXNG HTTP Basic Auth failed",
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker SearXNG credentials",
-            "description": "Check SearXNG credentials, or leave the URL empty to disable photo lookups.",
+            "title": "Fix AIS Ship Tracker HTTP Basic Auth",
+            "description": "Check the HTTP Basic Auth credentials for SearXNG, or leave the URL empty to disable photo lookups.",
             "data": {
               "api_key": "AISStream API key",
               "longitude_west": "West longitude",
@@ -234,8 +234,8 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password"
+              "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+              "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",
@@ -268,8 +268,8 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "searxng_username": "SearXNG username",
-              "searxng_password": "SearXNG password"
+              "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+              "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Enter an AISStream API key.",

@@ -12,8 +12,8 @@
           "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
           "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
           "searxng_url": "SearXNG-URL (optional)",
-          "searxng_username": "SearXNG-Benutzername",
-          "searxng_password": "SearXNG-Passwort",
+          "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+          "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)",
           "area_count": "Anzahl der Verfolgungsgebiete"
         },
         "error": {
@@ -60,8 +60,8 @@
           "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
           "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
           "searxng_url": "SearXNG-URL (optional)",
-          "searxng_username": "SearXNG-Benutzername",
-          "searxng_password": "SearXNG-Passwort (leer lassen, um es beizubehalten)"
+          "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+          "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (leer lassen, um es beizubehalten)"
         },
         "error": {
           "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
@@ -132,8 +132,8 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
-              "searxng_username": "SearXNG-Benutzername",
-              "searxng_password": "SearXNG-Passwort"
+              "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+              "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
@@ -166,8 +166,8 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
-              "searxng_username": "SearXNG-Benutzername",
-              "searxng_password": "SearXNG-Passwort"
+              "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+              "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
@@ -200,8 +200,8 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
-              "searxng_username": "SearXNG-Benutzername",
-              "searxng_password": "SearXNG-Passwort"
+              "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+              "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
@@ -215,12 +215,12 @@
       }
     },
     "searxng_authentication": {
-      "title": "SearXNG-Authentifizierung fehlgeschlagen",
+      "title": "HTTP-Basic-Auth für SearXNG fehlgeschlagen",
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "AIS-Schiffsverfolgungs-SearXNG-Zugangsdaten korrigieren",
-            "description": "Prüfe die SearXNG-Zugangsdaten oder lasse die URL leer, um die Fotosuche zu deaktivieren.",
+            "title": "HTTP-Basic-Auth für AIS-Schiffsverfolgung korrigieren",
+            "description": "Prüfe die HTTP-Basic-Auth-Zugangsdaten für SearXNG oder lasse die URL leer, um die Fotosuche zu deaktivieren.",
             "data": {
               "api_key": "AISStream-API-Schlüssel",
               "longitude_west": "Westlicher Längengrad",
@@ -234,8 +234,8 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
-              "searxng_username": "SearXNG-Benutzername",
-              "searxng_password": "SearXNG-Passwort"
+              "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+              "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
@@ -268,8 +268,8 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
-              "searxng_username": "SearXNG-Benutzername",
-              "searxng_password": "SearXNG-Passwort"
+              "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+              "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
             "error": {
               "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",

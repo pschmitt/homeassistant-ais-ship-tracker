@@ -60,6 +60,9 @@ keeps the per-area last-ship entities without creating per-vessel sensors.
 SearXNG is optional. If no URL is configured, no photo camera is created. If
 configured, the integration searches for the vessel name and MMSI and serves
 the selected image through Home Assistant's camera entity.
+If the SearXNG endpoint is protected by an external HTTP Basic Auth layer,
+configure its optional username and password; these are not SearXNG account
+credentials.
 
 ## Entities
 
