@@ -114,10 +114,10 @@ the MMSI. When a vessel expires from the map
 timeout or is evicted by the limit, its entity and entity-registry entry are
 removed; it will be recreated if it is observed again.
 
-Photo cameras include the current vessel's AIS attributes, the photo provider
-and source URL, the generated `search_query` and `search_url`, and any lookup
-error as camera attributes. The last-passing-ship sensors, temporary per-vessel
-sensors, event entities, and photo cameras expose the same
+Photo cameras include the current vessel's AIS attributes, the photo provider,
+source URL, photographer, and credit page, the generated `search_query` and
+`search_url`, and any lookup error as camera attributes. The last-passing-ship
+sensors, temporary per-vessel sensors, event entities, and photo cameras expose the same
 `vessel_finder_url` attribute whenever an MMSI is available. This makes it easy
 to link directly to the vessel's [VesselFinder details
 page](https://www.vesselfinder.com/). For example, the default `Home` area uses

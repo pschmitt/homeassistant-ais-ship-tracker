@@ -88,6 +88,40 @@ def _vessel_finder_photo_candidate(
     return None
 
 
+def _vessel_finder_photo_page_url(
+    details_html: str, details_url: str
+) -> str | None:
+    """Return the gallery page URL associated with the main vessel photo."""
+    soup = BeautifulSoup(details_html, "html.parser")
+    for tag in soup.find_all("a", href=True):
+        href = str(tag["href"])
+        if re.search(r"/ship-photos/\d+", href):
+            return urljoin(details_url, href)
+    return None
+
+
+def _vessel_finder_photo_author(photo_html: str) -> str | None:
+    """Extract the photographer name from a VesselFinder photo page."""
+    soup = BeautifulSoup(photo_html, "html.parser")
+    for heading in soup.find_all(["h1", "h2", "h3", "h4"]):
+        if heading.get_text(" ", strip=True).lower() != "photographer":
+            continue
+        table = heading.find_next("table")
+        if table is None:
+            continue
+        for row in table.find_all("tr"):
+            cells = row.find_all(["th", "td"])
+            if len(cells) < 2 or cells[0].get_text(" ", strip=True).lower() not in {
+                "name",
+                "name:",
+            }:
+                continue
+            author = cells[1].get_text(" ", strip=True)
+            if author and author != "-":
+                return author
+    return None
+
+
 class ShipPhotoCoordinator:
     """Keep the latest vessel photo and its lookup metadata."""
 
@@ -119,6 +153,8 @@ class ShipPhotoCoordinator:
         self._vessel_name = ""
         self._provider = ""
         self._photo_url = ""
+        self._photo_author = ""
+        self._photo_credit_url = ""
         self._photo_cacheable = False
         self._last_attempt: datetime | None = None
         self._last_updated: datetime | None = None
@@ -177,6 +213,8 @@ class ShipPhotoCoordinator:
         self._vessel_name = str(stored.get("vessel_name") or "")
         self._provider = str(stored.get("provider") or "")
         self._photo_url = str(stored.get("photo_url") or "")
+        self._photo_author = str(stored.get("photo_author") or "")
+        self._photo_credit_url = str(stored.get("photo_credit_url") or "")
         self._last_attempt = datetime.now(UTC)
         self._photo_cacheable = True
         self._error = ""
@@ -201,6 +239,8 @@ class ShipPhotoCoordinator:
             "vessel_name": self._vessel_name,
             "provider": self._provider,
             "photo_url": self._photo_url,
+            "photo_author": self._photo_author,
+            "photo_credit_url": self._photo_credit_url,
             "last_updated": (
                 self._last_updated.isoformat() if self._last_updated else None
             ),
@@ -253,6 +293,9 @@ class ShipPhotoCoordinator:
             "vessel_finder_url": vessel_finder_url(mmsi),
             "provider": self._provider or None,
             "photo_url": self._photo_url or None,
+            "photo_author": self._photo_author or None,
+            "photo_credit": self._photo_author or self._provider or None,
+            "photo_credit_url": self._photo_credit_url or None,
             "search_query": search_query or None,
             "search_url": search_url,
             "last_updated": self._last_updated.isoformat()
@@ -329,6 +372,8 @@ class ShipPhotoCoordinator:
             self._mmsi = mmsi
             self._provider = ""
             self._photo_url = ""
+            self._photo_author = ""
+            self._photo_credit_url = ""
             self._image = None
             self._photo_cacheable = False
             self._error = ""
@@ -340,6 +385,8 @@ class ShipPhotoCoordinator:
             photo_headers = {"User-Agent": "Home Assistant AIS ship photo camera"}
             photo_auth = self._auth
             photo_via_searxng = False
+            details_url = vessel_finder_url(mmsi)
+            details_html: str | None = None
 
             try:
                 async with self.session.get(
@@ -380,7 +427,6 @@ class ShipPhotoCoordinator:
                 )
 
             if photo_url is None:
-                details_url = vessel_finder_url(mmsi)
                 if details_url:
                     try:
                         async with self.session.get(
@@ -399,11 +445,50 @@ class ShipPhotoCoordinator:
                             photo_headers["Referer"] = details_url
                             photo_auth = None
                     except (ClientError, asyncio.TimeoutError) as err:
-                        _LOGGER.debug(
+                            _LOGGER.debug(
                             "Direct VesselFinder photo lookup failed for %s: %s",
                             mmsi,
                             err,
                         )
+            if photo_url is not None and provider == "VesselFinder" and details_url:
+                if details_html is None:
+                    try:
+                        async with self.session.get(
+                            details_url,
+                            headers=photo_headers,
+                            timeout=15,
+                        ) as response:
+                            response.raise_for_status()
+                            details_html = await response.text()
+                    except (ClientError, asyncio.TimeoutError) as err:
+                        _LOGGER.debug(
+                            "VesselFinder credit lookup failed for %s: %s",
+                            mmsi,
+                            err,
+                        )
+                if details_html:
+                    credit_url = _vessel_finder_photo_page_url(
+                        details_html, details_url
+                    )
+                    if credit_url:
+                        self._photo_credit_url = credit_url
+                        try:
+                            async with self.session.get(
+                                credit_url,
+                                headers=photo_headers,
+                                timeout=15,
+                            ) as response:
+                                response.raise_for_status()
+                                credit_html = await response.text()
+                            self._photo_author = (
+                                _vessel_finder_photo_author(credit_html) or ""
+                            )
+                        except (ClientError, asyncio.TimeoutError) as err:
+                            _LOGGER.debug(
+                                "VesselFinder photographer lookup failed for %s: %s",
+                                mmsi,
+                                err,
+                            )
             if photo_url is None:
                 self._set_error("No MarineTraffic or VesselFinder photo found")
                 _LOGGER.debug(
