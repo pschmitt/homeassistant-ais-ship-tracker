@@ -79,6 +79,8 @@ each downloaded image is cached by MMSI in Home Assistant storage and reused
 after a restart or when that vessel is seen again; without a cached image, a
 lookup is retried on startup. Cached entries are retained until the integration
 is removed or its storage is cleared.
+VesselFinder's generic “No photo” placeholder remains available as the live
+camera image, but is never cached and will be retried like an uncached result.
 If the SearXNG endpoint is protected by an external HTTP Basic Auth layer,
 configure its optional username and password; these are not SearXNG account
 credentials.

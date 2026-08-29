@@ -43,6 +43,14 @@ _VESSEL_FINDER_OG_IMAGE = re.compile(
     r"([^\"']+)[\"']",
     re.IGNORECASE,
 )
+_VESSEL_FINDER_NO_PHOTO = re.compile(
+    r"(?:cool-ship|no[-_ ]photo|placeholder)",
+    re.IGNORECASE,
+)
+_VESSEL_FINDER_NO_PHOTO_ALT = re.compile(
+    r"<img\b[^>]*\balt=[\"']no photo[\"']",
+    re.IGNORECASE,
+)
 _RETRY_INTERVAL = timedelta(minutes=5)
 _PHOTO_STORE_VERSION = 1
 
@@ -78,6 +86,7 @@ class ShipPhotoCoordinator:
         self._vessel_name = ""
         self._provider = ""
         self._photo_url = ""
+        self._photo_cacheable = False
         self._last_attempt: datetime | None = None
         self._last_updated: datetime | None = None
         self._error = ""
@@ -136,6 +145,7 @@ class ShipPhotoCoordinator:
         self._provider = str(stored.get("provider") or "")
         self._photo_url = str(stored.get("photo_url") or "")
         self._last_attempt = datetime.now(UTC)
+        self._photo_cacheable = True
         self._error = ""
         last_updated = stored.get("last_updated")
         if isinstance(last_updated, str):
@@ -227,7 +237,7 @@ class ShipPhotoCoordinator:
         mmsi = str(ship.get("mmsi", ""))
         if mmsi != self._mmsi:
             return True
-        if self._cache_photos and self._image is not None:
+        if self._cache_photos and self._image is not None and self._photo_cacheable:
             return False
         return (
             self._last_attempt is None
@@ -281,6 +291,7 @@ class ShipPhotoCoordinator:
             self._provider = ""
             self._photo_url = ""
             self._image = None
+            self._photo_cacheable = False
             self._error = ""
             query = " ".join(part for part in (vessel_name, mmsi) if part)
             search_url = f"{self.searxng_url}/search?{urlencode({'q': query, 'categories': 'images'})}"
@@ -306,6 +317,7 @@ class ShipPhotoCoordinator:
                     proxy_path = _VESSEL_FINDER_PROXY.search(search_html)
                     provider = "VesselFinder"
                 photo_url: str | None = None
+                photo_cacheable = True
                 photo_headers = {"User-Agent": "Home Assistant AIS ship photo camera"}
                 photo_auth = self._auth
                 if proxy_path is not None:
@@ -326,6 +338,10 @@ class ShipPhotoCoordinator:
                             ) or _VESSEL_FINDER_OG_IMAGE.search(details_html)
                             if photo_match:
                                 photo_url = urljoin(details_url, photo_match.group(1))
+                                photo_cacheable = not (
+                                    _VESSEL_FINDER_NO_PHOTO.search(photo_url)
+                                    or _VESSEL_FINDER_NO_PHOTO_ALT.search(details_html)
+                                )
                                 provider = "VesselFinder"
                                 photo_headers["Referer"] = details_url
                                 photo_auth = None
@@ -360,7 +376,8 @@ class ShipPhotoCoordinator:
                 self._provider = provider
                 self._photo_url = photo_url
                 self._last_updated = datetime.now(UTC)
-                if self._cache_photos:
+                self._photo_cacheable = photo_cacheable
+                if self._cache_photos and photo_cacheable:
                     self._cached_photos[mmsi] = self._current_photo_data()
                     await self._store.async_save(self._stored_data())
                 _LOGGER.debug(
