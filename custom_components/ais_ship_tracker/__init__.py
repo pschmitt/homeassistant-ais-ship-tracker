@@ -16,6 +16,7 @@ from homeassistant.helpers.issue_registry import IssueSeverity
 from .areas import area_id, area_name, configured_areas
 from .const import (
     CONF_AREAS,
+    CONF_CACHE_PHOTOS,
     CONF_LATITUDE_NORTH,
     CONF_LATITUDE_SOUTH,
     CONF_LONGITUDE_EAST,
@@ -137,6 +138,7 @@ async def async_setup_entry(
                 tracker,
                 settings.get(CONF_SEARXNG_USERNAME),
                 settings.get(CONF_SEARXNG_PASSWORD),
+                bool(settings.get(CONF_CACHE_PHOTOS, False)),
                 entry.entry_id,
                 area_id(area, index),
                 area_name(area, index),
@@ -145,6 +147,8 @@ async def async_setup_entry(
         }
     entry.runtime_data = AisShipTrackerRuntime(tracker=tracker, photos=photos)
     await tracker.async_start()
+    for photo in photos.values():
+        await photo.async_restore()
 
     source_zones = {
         str(area[CONF_ZONE_ENTITY])
@@ -197,6 +201,8 @@ async def async_setup_entry(
     entry.async_on_unload(tracker.async_add_listener(tracker_updated))
 
     for photo in photos.values():
+        if photo.available:
+            continue
         entry.async_create_background_task(
             hass, photo.async_refresh(), "ais_ship_tracker_initial_refresh"
         )

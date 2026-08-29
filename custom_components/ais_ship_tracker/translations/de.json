@@ -12,6 +12,7 @@
           "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
           "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
           "searxng_url": "SearXNG-URL (optional)",
+          "cache_photos": "Bootfotos lokal zwischenspeichern",
           "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
           "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)",
           "area_count": "Anzahl der Verfolgungsgebiete"
@@ -60,6 +61,7 @@
           "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
           "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
           "searxng_url": "SearXNG-URL (optional)",
+          "cache_photos": "Bootfotos lokal zwischenspeichern",
           "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
           "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (leer lassen, um es beizubehalten)"
         },
@@ -132,6 +134,7 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
+              "cache_photos": "Bootfotos lokal zwischenspeichern",
               "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
               "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
@@ -166,6 +169,7 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
+              "cache_photos": "Bootfotos lokal zwischenspeichern",
               "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
               "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
@@ -200,6 +204,7 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
+              "cache_photos": "Bootfotos lokal zwischenspeichern",
               "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
               "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
@@ -234,6 +239,7 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
+              "cache_photos": "Bootfotos lokal zwischenspeichern",
               "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
               "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },
@@ -268,6 +274,7 @@
               "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
               "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
               "searxng_url": "SearXNG-URL (optional)",
+              "cache_photos": "Bootfotos lokal zwischenspeichern",
               "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
               "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
             },

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import html
 import logging
 import re
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, ISSUE_SEARXNG_AUTHENTICATION, ISSUE_SEARXNG_ENDPOINT
 from .entity import vessel_finder_url
@@ -31,7 +33,18 @@ _VESSEL_FINDER_PROXY = re.compile(
     r"/image_proxy\?url=https%3A%2F%2Fstatic\.vesselfinder\.net%2Fship-photo%2F[^&\"]+"
     r"&h=[0-9a-f]+"
 )
+_VESSEL_FINDER_DETAILS_PHOTO = re.compile(
+    r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*"
+    r"\bclass=[\"'][^\"']*\bmain-photo\b[^\"']*[\"']",
+    re.IGNORECASE,
+)
+_VESSEL_FINDER_OG_IMAGE = re.compile(
+    r"<meta\b[^>]*\bproperty=[\"']og:image[\"'][^>]*\bcontent=[\"']"
+    r"([^\"']+)[\"']",
+    re.IGNORECASE,
+)
 _RETRY_INTERVAL = timedelta(minutes=5)
+_PHOTO_STORE_VERSION = 1
 
 
 class ShipPhotoCoordinator:
@@ -45,6 +58,7 @@ class ShipPhotoCoordinator:
         tracker: AisTrackerCoordinator,
         username: str | None,
         password: str | None,
+        cache_photos: bool,
         entry_id: str,
         area_id: str,
         area_name: str,
@@ -56,6 +70,7 @@ class ShipPhotoCoordinator:
         self.area_id = area_id
         self.area_name = area_name
         self._auth = BasicAuth(username, password) if username else None
+        self._cache_photos = cache_photos
         self.entry_id = entry_id
         self._image: bytes | None = None
         self._content_type = "image/jpeg"
@@ -68,6 +83,60 @@ class ShipPhotoCoordinator:
         self._error = ""
         self._listeners: list[Callable[[], None]] = []
         self._lock = asyncio.Lock()
+        self._store = Store(
+            hass,
+            _PHOTO_STORE_VERSION,
+            f"{DOMAIN}.photo_{entry_id}_{area_id}",
+        )
+
+    async def async_restore(self) -> None:
+        """Restore the cached photo, if one exists for the last vessel."""
+        if not self._cache_photos:
+            return
+        stored = await self._store.async_load()
+        if not isinstance(stored, dict) or not stored.get("image"):
+            return
+
+        stored_mmsi = str(stored.get("mmsi") or "")
+        current_ship = self.tracker.last_ships.get(self.area_id)
+        if current_ship and str(current_ship.get("mmsi") or "") != stored_mmsi:
+            return
+
+        try:
+            image = base64.b64decode(stored["image"], validate=True)
+        except (TypeError, ValueError):
+            _LOGGER.warning("Ignoring invalid cached AIS photo for %s", self.area_id)
+            return
+        if not image:
+            return
+
+        self._image = image
+        self._content_type = str(stored.get("content_type") or "image/jpeg")
+        self._mmsi = stored_mmsi
+        self._vessel_name = str(stored.get("vessel_name") or "")
+        self._provider = str(stored.get("provider") or "")
+        self._photo_url = str(stored.get("photo_url") or "")
+        self._last_attempt = datetime.now(UTC)
+        last_updated = stored.get("last_updated")
+        if isinstance(last_updated, str):
+            try:
+                self._last_updated = datetime.fromisoformat(last_updated)
+            except ValueError:
+                self._last_updated = None
+
+    def _stored_data(self) -> dict[str, Any]:
+        """Return the cached photo payload for Home Assistant storage."""
+        return {
+            "image": base64.b64encode(self._image or b"").decode("ascii"),
+            "content_type": self._content_type,
+            "mmsi": self._mmsi,
+            "vessel_name": self._vessel_name,
+            "provider": self._provider,
+            "photo_url": self._photo_url,
+            "last_updated": (
+                self._last_updated.isoformat() if self._last_updated else None
+            ),
+        }
 
     @property
     def available(self) -> bool:
@@ -182,6 +251,7 @@ class ShipPhotoCoordinator:
             self._error = ""
             query = " ".join(part for part in (vessel_name, mmsi) if part)
             search_url = f"{self.searxng_url}/search?{urlencode({'q': query, 'categories': 'images'})}"
+            proxy_path = None
 
             try:
                 async with self.session.get(
@@ -202,18 +272,47 @@ class ShipPhotoCoordinator:
                 if proxy_path is None:
                     proxy_path = _VESSEL_FINDER_PROXY.search(search_html)
                     provider = "VesselFinder"
-                if proxy_path is None:
+                photo_url: str | None = None
+                photo_headers = {"User-Agent": "Home Assistant AIS ship photo camera"}
+                photo_auth = self._auth
+                if proxy_path is not None:
+                    photo_url = urljoin(f"{self.searxng_url}/", proxy_path.group(0))
+                else:
+                    details_url = vessel_finder_url(mmsi)
+                    if details_url:
+                        try:
+                            async with self.session.get(
+                                details_url,
+                                headers=photo_headers,
+                                timeout=15,
+                            ) as response:
+                                response.raise_for_status()
+                                details_html = html.unescape(await response.text())
+                            photo_match = _VESSEL_FINDER_DETAILS_PHOTO.search(
+                                details_html
+                            ) or _VESSEL_FINDER_OG_IMAGE.search(details_html)
+                            if photo_match:
+                                photo_url = urljoin(details_url, photo_match.group(1))
+                                provider = "VesselFinder"
+                                photo_headers["Referer"] = details_url
+                                photo_auth = None
+                        except (ClientError, asyncio.TimeoutError) as err:
+                            _LOGGER.debug(
+                                "Direct VesselFinder photo lookup failed for %s: %s",
+                                mmsi,
+                                err,
+                            )
+                if photo_url is None:
                     self._set_error("No MarineTraffic or VesselFinder photo found")
                     _LOGGER.debug(
                         "No photo result found for %s (%s)", vessel_name, mmsi
                     )
                     return
 
-                photo_url = urljoin(f"{self.searxng_url}/", proxy_path.group(0))
                 async with self.session.get(
                     photo_url,
-                    headers={"User-Agent": "Home Assistant AIS ship photo camera"},
-                    auth=self._auth,
+                    headers=photo_headers,
+                    auth=photo_auth,
                     timeout=20,
                 ) as response:
                     response.raise_for_status()
@@ -228,6 +327,8 @@ class ShipPhotoCoordinator:
                 self._provider = provider
                 self._photo_url = photo_url
                 self._last_updated = datetime.now(UTC)
+                if self._cache_photos:
+                    await self._store.async_save(self._stored_data())
                 _LOGGER.debug(
                     "Updated %s photo for %s (%s) via %s",
                     self.tracker.entry_id,
@@ -236,9 +337,9 @@ class ShipPhotoCoordinator:
                     provider,
                 )
             except ClientResponseError as err:
-                if err.status in (401, 403):
+                if proxy_path is not None and err.status in (401, 403):
                     self._set_service_issue(ISSUE_SEARXNG_AUTHENTICATION)
-                elif err.status == 404:
+                elif proxy_path is not None and err.status == 404:
                     self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
                 self._set_error(f"Photo lookup failed with HTTP {err.status}")
                 _LOGGER.warning(

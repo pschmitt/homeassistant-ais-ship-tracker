@@ -12,9 +12,9 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 - A bounded set of temporary per-vessel sensors for map cards; expired vessel
   entities are removed from Home Assistant automatically.
 - Optional SearXNG image search, preferring MarineTraffic and falling back to
-  VesselFinder, exposed as a `camera` entity.
+  VesselFinder, exposed as a `camera` entity, with an optional local photo cache.
 - Config flow and options flow for one shared API key, multiple named tracking
-  areas, filters, map retention, and optional photo lookup.
+areas, filters, map retention, and optional photo lookup and caching.
 - Repairs for AISStream authentication/subscription and SearXNG configuration failures.
 - Diagnostics with credentials redacted.
 
@@ -69,7 +69,12 @@ tracking area is removed.
 
 SearXNG is optional. If no URL is configured, no photo camera is created. If
 configured, the integration searches for the vessel name and MMSI and serves
-the selected image through Home Assistant's camera entity.
+the selected image through Home Assistant's camera entity. If SearXNG returns
+no supported image result, it makes a best-effort fallback request to the
+public VesselFinder details page and uses its main vessel photo when available.
+Local photo caching is optional and disabled by default. When enabled, the
+downloaded image is cached in Home Assistant storage and reused after a
+restart; without a cached image, a lookup is retried on startup.
 If the SearXNG endpoint is protected by an external HTTP Basic Auth layer,
 configure its optional username and password; these are not SearXNG account
 credentials.
