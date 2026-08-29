@@ -98,5 +98,177 @@
     "camera": {
       "last_passing_ship_photo": {"name": "Foto des zuletzt vorbeigefahrenen Schiffs"}
     }
+  },
+  "issues": {
+    "ais_authentication": {
+      "title": "AISStream-Authentifizierung fehlgeschlagen",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "AIS-Schiffsverfolgungs-Zugangsdaten korrigieren",
+            "description": "Gib einen gültigen AISStream-API-Schlüssel ein und prüfe die Verfolgungseinstellungen.",
+            "data": {
+              "api_key": "AISStream-API-Schlüssel",
+              "longitude_west": "Westlicher Längengrad",
+              "latitude_south": "Südlicher Breitengrad",
+              "longitude_east": "Östlicher Längengrad",
+              "latitude_north": "Nördlicher Breitengrad",
+              "zone_radius": "Radius der Zielzone (Meter)",
+              "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+              "include_class_b": "Class-B-Transponder einschließen",
+              "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+              "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+              "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+              "searxng_url": "SearXNG-URL (optional)",
+              "searxng_username": "SearXNG-Benutzername",
+              "searxng_password": "SearXNG-Passwort"
+            },
+            "error": {
+              "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+              "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+              "invalid_radius": "Gib einen positiven Radius für die Zielzone ein.",
+              "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "Der Eintrag für die AIS-Schiffsverfolgung existiert nicht mehr."}
+      }
+    },
+    "ais_connection": {
+      "title": "Die AISStream-Verbindung konnte nicht hergestellt werden",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "AIS-Schiffsverfolgungs-Verbindung korrigieren",
+            "description": "Prüfe den AISStream-API-Schlüssel und die Verfolgungseinstellungen und versuche es erneut.",
+            "data": {
+              "api_key": "AISStream-API-Schlüssel",
+              "longitude_west": "Westlicher Längengrad",
+              "latitude_south": "Südlicher Breitengrad",
+              "longitude_east": "Östlicher Längengrad",
+              "latitude_north": "Nördlicher Breitengrad",
+              "zone_radius": "Radius der Zielzone (Meter)",
+              "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+              "include_class_b": "Class-B-Transponder einschließen",
+              "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+              "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+              "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+              "searxng_url": "SearXNG-URL (optional)",
+              "searxng_username": "SearXNG-Benutzername",
+              "searxng_password": "SearXNG-Passwort"
+            },
+            "error": {
+              "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+              "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+              "invalid_radius": "Gib einen positiven Radius für die Zielzone ein.",
+              "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "Der Eintrag für die AIS-Schiffsverfolgung existiert nicht mehr."}
+      }
+    },
+    "invalid_searxng_url": {
+      "title": "Die SearXNG-URL ist ungültig",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "AIS-Schiffsverfolgungs-Einstellungen korrigieren",
+            "description": "Gib eine gültige SearXNG-URL ein oder lasse das Feld leer, um die Fotosuche zu deaktivieren.",
+            "data": {
+              "api_key": "AISStream-API-Schlüssel",
+              "longitude_west": "Westlicher Längengrad",
+              "latitude_south": "Südlicher Breitengrad",
+              "longitude_east": "Östlicher Längengrad",
+              "latitude_north": "Nördlicher Breitengrad",
+              "zone_radius": "Radius der Zielzone (Meter)",
+              "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+              "include_class_b": "Class-B-Transponder einschließen",
+              "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+              "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+              "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+              "searxng_url": "SearXNG-URL (optional)",
+              "searxng_username": "SearXNG-Benutzername",
+              "searxng_password": "SearXNG-Passwort"
+            },
+            "error": {
+              "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+              "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+              "invalid_radius": "Gib einen positiven Radius für die Zielzone ein.",
+              "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "Der Eintrag für die AIS-Schiffsverfolgung existiert nicht mehr."}
+      }
+    },
+    "searxng_authentication": {
+      "title": "SearXNG-Authentifizierung fehlgeschlagen",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "AIS-Schiffsverfolgungs-SearXNG-Zugangsdaten korrigieren",
+            "description": "Prüfe die SearXNG-Zugangsdaten oder lasse die URL leer, um die Fotosuche zu deaktivieren.",
+            "data": {
+              "api_key": "AISStream-API-Schlüssel",
+              "longitude_west": "Westlicher Längengrad",
+              "latitude_south": "Südlicher Breitengrad",
+              "longitude_east": "Östlicher Längengrad",
+              "latitude_north": "Nördlicher Breitengrad",
+              "zone_radius": "Radius der Zielzone (Meter)",
+              "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+              "include_class_b": "Class-B-Transponder einschließen",
+              "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+              "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+              "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+              "searxng_url": "SearXNG-URL (optional)",
+              "searxng_username": "SearXNG-Benutzername",
+              "searxng_password": "SearXNG-Passwort"
+            },
+            "error": {
+              "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+              "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+              "invalid_radius": "Gib einen positiven Radius für die Zielzone ein.",
+              "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "Der Eintrag für die AIS-Schiffsverfolgung existiert nicht mehr."}
+      }
+    },
+    "searxng_endpoint": {
+      "title": "Der SearXNG-Endpunkt konnte nicht gefunden werden",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "AIS-Schiffsverfolgungs-SearXNG-URL korrigieren",
+            "description": "Prüfe die SearXNG-URL oder lasse sie leer, um die Fotosuche zu deaktivieren.",
+            "data": {
+              "api_key": "AISStream-API-Schlüssel",
+              "longitude_west": "Westlicher Längengrad",
+              "latitude_south": "Südlicher Breitengrad",
+              "longitude_east": "Östlicher Längengrad",
+              "latitude_north": "Nördlicher Breitengrad",
+              "zone_radius": "Radius der Zielzone (Meter)",
+              "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+              "include_class_b": "Class-B-Transponder einschließen",
+              "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+              "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+              "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+              "searxng_url": "SearXNG-URL (optional)",
+              "searxng_username": "SearXNG-Benutzername",
+              "searxng_password": "SearXNG-Passwort"
+            },
+            "error": {
+              "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+              "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+              "invalid_radius": "Gib einen positiven Radius für die Zielzone ein.",
+              "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "Der Eintrag für die AIS-Schiffsverfolgung existiert nicht mehr."}
+      }
+    }
   }
 }
