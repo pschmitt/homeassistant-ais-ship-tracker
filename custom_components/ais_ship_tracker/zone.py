@@ -33,15 +33,23 @@ def _zone_name(area: dict[str, Any], index: int) -> str:
     return f"{ZONE_NAME} ({area.get('name', f'Area {index}')})"
 
 
-def _zone_data(area: dict[str, Any], index: int) -> dict[str, Any]:
+def _zone_data(
+    area: dict[str, Any], index: int, home_location: tuple[float, float, float] | None
+) -> dict[str, Any]:
     """Build zone configuration from one configured AIS area."""
+    if index == 1 and home_location is not None:
+        latitude, longitude, radius = home_location
+    else:
+        latitude = (float(area["latitude_south"]) + float(area["latitude_north"])) / 2
+        longitude = (
+            float(area["longitude_west"]) + float(area["longitude_east"])
+        ) / 2
+        radius = float(area.get("zone_radius", 100))
     return {
         CONF_NAME: _zone_name(area, index),
-        CONF_LATITUDE: (float(area["latitude_south"]) + float(area["latitude_north"]))
-        / 2,
-        CONF_LONGITUDE: (float(area["longitude_west"]) + float(area["longitude_east"]))
-        / 2,
-        CONF_RADIUS: float(area.get("zone_radius", 100)),
+        CONF_LATITUDE: latitude,
+        CONF_LONGITUDE: longitude,
+        CONF_RADIUS: radius,
         CONF_ICON: "mdi:ferry",
         CONF_PASSIVE: True,
     }
@@ -70,12 +78,23 @@ async def async_sync_zones(
             zone_ids["area_1"] = str(stored["zone_id"])
 
     areas = configured_areas(settings)
+    home = hass.states.get("zone.home")
+    home_location = None
+    if home is not None:
+        try:
+            home_location = (
+                float(home.attributes[CONF_LATITUDE]),
+                float(home.attributes[CONF_LONGITUDE]),
+                float(home.attributes[CONF_RADIUS]),
+            )
+        except (KeyError, TypeError, ValueError):
+            _LOGGER.warning("Home zone has incomplete location data")
     desired_area_ids = {
         str(area.get("id", f"area_{index}")) for index, area in enumerate(areas, 1)
     }
     for area_index, area in enumerate(areas, 1):
         area_id = str(area.get("id", f"area_{area_index}"))
-        data = _zone_data(area, area_index)
+        data = _zone_data(area, area_index, home_location)
         zone_id = zone_ids.get(area_id)
         if zone_id and zone_id in collection.data:
             await collection.async_update_item(zone_id, data)

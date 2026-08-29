@@ -49,8 +49,9 @@ editable in the options flow. Open **Configure** for the integration and use
 **Manage tracking areas** to edit a named area, add another, or remove one;
 shared settings are edited separately. The integration creates one passive HA
 zone per area; the first is `zone.ais_ship_tracking_area` and additional zones include
-the configured area name. Each zone is centered on its bounding box and has a
-configurable radius in metres. These zones are safe to use on maps without
+the configured area name. Additional zones are centered on their bounding box
+and have a configurable radius in metres; the first zone follows `zone.home`
+exactly. These zones are safe to use on maps without
 affecting presence tracking. Zones are updated when the integration is
 reconfigured and removed when the integration is removed.
 
