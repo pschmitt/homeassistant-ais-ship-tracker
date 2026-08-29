@@ -3,26 +3,41 @@
     "step": {
       "user": {
         "title": "AIS Ship Tracker",
-        "description": "Track vessels in a bounding box and optionally search SearXNG for photos.",
+        "description": "Track vessels in one or more areas and optionally search SearXNG for photos.",
         "data": {
           "api_key": "AISStream API key",
-          "longitude_west": "West longitude",
-          "latitude_south": "South latitude",
-          "longitude_east": "East longitude",
-          "latitude_north": "North latitude",
-          "zone_radius": "Target zone radius (metres)",
           "enable_map_entities": "Create map vessel entities",
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
           "map_timeout_minutes": "Map vessel timeout (minutes)",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password"
+          "searxng_password": "SearXNG password",
+          "area_count": "Number of tracking areas"
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
+          "invalid_url": "Enter a valid HTTP or HTTPS URL.",
+          "invalid_area_name": "Enter a name for this tracking area.",
           "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
-          "invalid_url": "Enter a valid HTTP or HTTPS URL."
+          "invalid_radius": "Enter a positive target zone radius."
+        }
+      },
+      "area": {
+        "title": "Tracking area {area_number} of {area_count}",
+        "description": "Define the bounding box and passive zone radius for this area.",
+        "data": {
+          "area_name": "Area name",
+          "longitude_west": "West longitude",
+          "latitude_south": "South latitude",
+          "longitude_east": "East longitude",
+          "latitude_north": "North latitude",
+          "zone_radius": "Passive zone radius (metres)"
+        },
+        "error": {
+          "invalid_area_name": "Enter a name for this tracking area.",
+          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+          "invalid_radius": "Enter a positive target zone radius."
         }
       }
     }
@@ -31,26 +46,41 @@
     "step": {
       "init": {
         "title": "AIS Ship Tracker settings",
-        "description": "Adjust the AIS area, map entities, and optional SearXNG photo lookup.",
+        "description": "Adjust shared AIS settings and choose how many tracking areas to configure.",
         "data": {
           "api_key": "AISStream API key (leave blank to keep it)",
-          "longitude_west": "West longitude",
-          "latitude_south": "South latitude",
-          "longitude_east": "East longitude",
-          "latitude_north": "North latitude",
-          "zone_radius": "Target zone radius (metres)",
           "enable_map_entities": "Create map vessel entities",
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
           "map_timeout_minutes": "Map vessel timeout (minutes)",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password (leave blank to keep it)"
+          "searxng_password": "SearXNG password (leave blank to keep it)",
+          "area_count": "Number of tracking areas"
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
+          "invalid_url": "Enter a valid HTTP or HTTPS URL.",
+          "invalid_area_name": "Enter a name for this tracking area.",
           "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
-          "invalid_url": "Enter a valid HTTP or HTTPS URL."
+          "invalid_radius": "Enter a positive target zone radius."
+        }
+      },
+      "area": {
+        "title": "Tracking area {area_number} of {area_count}",
+        "description": "Define the bounding box and passive zone radius for this area.",
+        "data": {
+          "area_name": "Area name",
+          "longitude_west": "West longitude",
+          "latitude_south": "South latitude",
+          "longitude_east": "East longitude",
+          "latitude_north": "North latitude",
+          "zone_radius": "Passive zone radius (metres)"
+        },
+        "error": {
+          "invalid_area_name": "Enter a name for this tracking area.",
+          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+          "invalid_radius": "Enter a positive target zone radius."
         }
       }
     }

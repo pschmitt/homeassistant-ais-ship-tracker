@@ -14,20 +14,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
-from .const import (
-    CONF_API_KEY,
-    CONF_ENABLE_MAP_ENTITIES,
-    CONF_INCLUDE_CLASS_B,
-    CONF_LATITUDE_NORTH,
-    CONF_LATITUDE_SOUTH,
-    CONF_LONGITUDE_EAST,
-    CONF_LONGITUDE_WEST,
-    CONF_MAP_TIMEOUT_MINUTES,
-    CONF_VESSEL_WATCHLIST,
-    DOMAIN,
-    ISSUE_AIS_AUTHENTICATION,
-    ISSUE_AIS_CONNECTION,
-)
+from .areas import configured_areas
+from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
+                    CONF_INCLUDE_CLASS_B, CONF_MAP_TIMEOUT_MINUTES,
+                    CONF_VESSEL_WATCHLIST, DOMAIN, ISSUE_AIS_AUTHENTICATION,
+                    ISSUE_AIS_CONNECTION)
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
@@ -120,7 +111,11 @@ class AisTrackerCoordinator:
     def vessel_watchlist(self) -> list[str]:
         """Return normalized MMSIs configured as a watchlist."""
         raw = str(self.settings.get(CONF_VESSEL_WATCHLIST, ""))
-        return [item.strip() for item in raw.split(",") if item.strip().isdigit() and len(item.strip()) == 9]
+        return [
+            item.strip()
+            for item in raw.split(",")
+            if item.strip().isdigit() and len(item.strip()) == 9
+        ]
 
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
@@ -184,14 +179,15 @@ class AisTrackerCoordinator:
                 "BoundingBoxes": [
                     [
                         [
-                            float(self.settings[CONF_LATITUDE_SOUTH]),
-                            float(self.settings[CONF_LONGITUDE_WEST]),
+                            float(area["latitude_south"]),
+                            float(area["longitude_west"]),
                         ],
                         [
-                            float(self.settings[CONF_LATITUDE_NORTH]),
-                            float(self.settings[CONF_LONGITUDE_EAST]),
+                            float(area["latitude_north"]),
+                            float(area["longitude_east"]),
                         ],
                     ]
+                    for area in configured_areas(self.settings)
                 ],
                 "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
             }
@@ -282,9 +278,9 @@ class AisTrackerCoordinator:
             "course": report.get("Cog"),
             "heading": report.get("TrueHeading"),
             "navigational_status": _NAV_STATUS.get(nav_status, "Not defined"),
-            "vessel_class": "Class B"
-            if message_type != "PositionReport"
-            else "Class A",
+            "vessel_class": (
+                "Class B" if message_type != "PositionReport" else "Class A"
+            ),
             "icon": _NAV_ICONS.get(nav_status, "mdi:ferry"),
             "spotted_time": now.isoformat(),
             "_last_seen": now,
@@ -315,9 +311,7 @@ class AisTrackerCoordinator:
                 if dimensions.get("A") is not None and dimensions.get("B") is not None
                 else None
             ),
-            "imo_number": str(static["ImoNumber"])
-            if static.get("ImoNumber")
-            else None,
+            "imo_number": str(static["ImoNumber"]) if static.get("ImoNumber") else None,
             "call_sign": str(static.get("CallSign") or "").strip() or None,
             "vessel_type": _vessel_type(static.get("Type")),
         }
@@ -326,10 +320,22 @@ class AisTrackerCoordinator:
         )
         ship = self.ships.get(mmsi)
         if ship is not None:
-            ship.update({key: value for key, value in static_values.items() if value is not None})
+            ship.update(
+                {
+                    key: value
+                    for key, value in static_values.items()
+                    if value is not None
+                }
+            )
             self._notify()
         if self.last_ship and self.last_ship.get("mmsi") == mmsi:
-            self.last_ship.update({key: value for key, value in static_values.items() if value is not None})
+            self.last_ship.update(
+                {
+                    key: value
+                    for key, value in static_values.items()
+                    if value is not None
+                }
+            )
             self.hass.async_create_task(self._store.async_save(self.last_ship))
             self._notify()
 
@@ -350,7 +356,11 @@ class AisTrackerCoordinator:
 
     def _public_ship(self, ship: dict[str, Any]) -> dict[str, Any]:
         """Remove internal bookkeeping from a vessel payload."""
-        return {key: value for key, value in ship.items() if not key.startswith("_") and value is not None}
+        return {
+            key: value
+            for key, value in ship.items()
+            if not key.startswith("_") and value is not None
+        }
 
     @callback
     def _notify(self) -> None:

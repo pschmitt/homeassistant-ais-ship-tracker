@@ -6,6 +6,9 @@ DOMAIN = "ais_ship_tracker"
 PLATFORMS = ["sensor", "event", "camera"]
 
 CONF_API_KEY = "api_key"
+CONF_AREAS = "areas"
+CONF_AREA_NAME = "area_name"
+CONF_AREA_COUNT = "area_count"
 CONF_LONGITUDE_WEST = "longitude_west"
 CONF_LATITUDE_SOUTH = "latitude_south"
 CONF_LONGITUDE_EAST = "longitude_east"

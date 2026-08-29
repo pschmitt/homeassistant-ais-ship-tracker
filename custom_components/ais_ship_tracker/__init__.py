@@ -12,16 +12,12 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.issue_registry import IssueSeverity
 
-from .const import (
-    CONF_SEARXNG_PASSWORD,
-    CONF_SEARXNG_URL,
-    CONF_SEARXNG_USERNAME,
-    DOMAIN,
-    PLATFORMS,
-)
+from .areas import configured_areas
+from .const import (CONF_AREAS, CONF_SEARXNG_PASSWORD, CONF_SEARXNG_URL,
+                    CONF_SEARXNG_USERNAME, DOMAIN, PLATFORMS)
 from .coordinator import ShipPhotoCoordinator
 from .tracker import AisTrackerCoordinator
-from .zone import async_remove_zone, async_sync_zone
+from .zone import async_remove_zones, async_sync_zones
 
 
 @dataclass(slots=True)
@@ -33,6 +29,18 @@ class AisShipTrackerRuntime:
 
 
 type AisShipTrackerConfigEntry = ConfigEntry[AisShipTrackerRuntime]
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
+) -> bool:
+    """Migrate legacy single-area entries to the multi-area format."""
+    if entry.version < 3:
+        settings = {**entry.data, **entry.options}
+        data = dict(entry.data)
+        data[CONF_AREAS] = configured_areas(settings)
+        hass.config_entries.async_update_entry(entry, data=data, version=3)
+    return True
 
 
 def _valid_url(value: str) -> bool:
@@ -75,7 +83,7 @@ async def async_setup_entry(
     """Set up AIS Ship Tracker from a config entry."""
     settings = {**entry.data, **entry.options}
     _update_config_issues(hass, entry, settings)
-    await async_sync_zone(hass, entry.entry_id, settings)
+    await async_sync_zones(hass, entry.entry_id, settings)
     tracker = AisTrackerCoordinator(
         hass,
         async_get_clientsession(hass),
@@ -84,8 +92,8 @@ async def async_setup_entry(
     )
     photo = (
         ShipPhotoCoordinator(
-        hass,
-        async_get_clientsession(hass),
+            hass,
+            async_get_clientsession(hass),
             settings[CONF_SEARXNG_URL],
             tracker,
             settings.get(CONF_SEARXNG_USERNAME),
@@ -141,4 +149,4 @@ async def async_remove_entry(
     hass: HomeAssistant, entry: AisShipTrackerConfigEntry
 ) -> None:
     """Remove integration-owned resources with the config entry."""
-    await async_remove_zone(hass, entry.entry_id)
+    await async_remove_zones(hass, entry.entry_id)

@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .config_flow import _clean_input, _data_schema, _validate_input
-from .const import CONF_API_KEY, CONF_SEARXNG_PASSWORD
+from .const import CONF_API_KEY, CONF_AREA_COUNT, CONF_SEARXNG_PASSWORD
 
 
 class AisShipTrackerRepairFlow(RepairsFlow):
@@ -50,8 +50,10 @@ class AisShipTrackerRepairFlow(RepairsFlow):
             if error:
                 errors["base"] = error
             else:
+                updated = {**current, **user_input}
+                updated.pop(CONF_AREA_COUNT, None)
                 self.hass.config_entries.async_update_entry(
-                    entry, data=user_input, options={}
+                    entry, data=updated, options={}
                 )
                 await self.hass.config_entries.async_reload(entry.entry_id)
                 return self.async_create_entry(data={})

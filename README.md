@@ -1,7 +1,7 @@
 # AIS Ship Tracker for Home Assistant
 
 AIS Ship Tracker is a Home Assistant custom integration for monitoring vessels
-inside a configurable geographic bounding box using the live
+inside one or more configurable geographic areas using the live
 [AISStream.io](https://aisstream.io) WebSocket service. It runs entirely as a
 Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 
@@ -12,8 +12,8 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 - Optional per-vessel sensors for map cards.
 - Optional SearXNG image search, preferring MarineTraffic and falling back to
   VesselFinder, exposed as a `camera` entity.
-- Config flow and options flow for the API key, bounding box, filters, map
-  retention, and optional photo lookup.
+- Config flow and options flow for one shared API key, multiple named tracking
+  areas, filters, map retention, and optional photo lookup.
 - Repairs for AISStream authentication/subscription and SearXNG configuration failures.
 - Diagnostics with credentials redacted.
 
@@ -31,20 +31,24 @@ Restart Home Assistant and add **AIS Ship Tracker** from
 ## Configuration
 
 Create an API key at [AISStream.io](https://aisstream.io). The config flow
-accepts the south-west and north-east corners of the area to monitor. Values
-are decimal degrees; for example, a small Spree section can be configured as:
+first asks for the shared settings and the number of tracking areas. It then
+presents one form per area, so multiple areas use the same credentials and a
+single AISStream subscription. Each area has a name, south-west and north-east
+corners, and its own passive zone radius. Values are decimal degrees; for
+example, a small Spree section can be configured as:
 
 ```text
 West: 13.3125       South: 52.5198
 East: 13.3190       North: 52.5235
 ```
 
-When adding the integration, these coordinates and the target-zone radius are
-initially derived from Home Assistant's `zone.home`. They remain fully editable
-in the options flow. The integration also creates a passive
-`zone.ais_ship_tracking_area` centered on the configured bounding box. Its
-radius is configurable in metres and it is safe to use on maps without
-affecting presence tracking. The zone is updated when the integration is
+When adding the integration, the first area's coordinates and radius are
+initially derived from Home Assistant's `zone.home`. They remain fully
+editable in the options flow. The integration creates one passive HA zone per
+area; the first is `zone.ais_ship_tracking_area` and additional zones include
+the configured area name. Each zone is centered on its bounding box and has a
+configurable radius in metres. These zones are safe to use on maps without
+affecting presence tracking. Zones are updated when the integration is
 reconfigured and removed when the integration is removed.
 
 Class B transponders, an MMSI watchlist, and map entity retention can be
@@ -62,8 +66,9 @@ The integration creates these entities unconditionally:
   the first detection or restored state, with AIS data in its attributes.
 - `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
   state.
-- `zone.ais_ship_tracking_area` — passive, configurable-radius representation
-  of the AIS target area for Home Assistant map cards.
+- `zone.ais_ship_tracking_area` and one additional passive zone per configured
+  area — configurable-radius representations of the target areas for Home
+  Assistant map cards.
 - `event.ais_ship_tracker_last_ship_updated` — emits `ship_updated` for each
   newly detected MMSI.
 
