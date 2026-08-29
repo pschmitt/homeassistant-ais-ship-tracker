@@ -18,7 +18,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, ISSUE_SEARXNG_AUTHENTICATION, ISSUE_SEARXNG_ENDPOINT
-from .entity import vessel_finder_url
+from .entity import marine_traffic_url, vessel_finder_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -119,6 +119,20 @@ def _vessel_finder_photo_author(photo_html: str) -> str | None:
             author = cells[1].get_text(" ", strip=True)
             if author and author != "-":
                 return author
+    return None
+
+
+def _marine_traffic_photo_candidate(
+    details_html: str, details_url: str
+) -> str | None:
+    """Extract a MarineTraffic vessel photo from the details page."""
+    soup = BeautifulSoup(details_html, "html.parser")
+    for tag in soup.find_all(["img", "meta", "source"]):
+        value = _tag_photo_value(tag)
+        if not value:
+            continue
+        if "marinetraffic.com/getassetdefaultphoto" in value.lower():
+            return urljoin(details_url, value)
     return None
 
 
@@ -294,6 +308,7 @@ class ShipPhotoCoordinator:
             "vessel_name": vessel_name or None,
             "mmsi": mmsi or None,
             "vessel_finder_url": vessel_finder_url(mmsi),
+            "marinetraffic_url": marine_traffic_url(mmsi),
             "provider": self._provider or None,
             "photo_origin": self._provider or None,
             "photo_url": self._photo_url or None,
@@ -494,7 +509,34 @@ class ShipPhotoCoordinator:
                                 err,
                             )
             if photo_url is None:
-                self._set_error("No MarineTraffic or VesselFinder photo found")
+                marine_url = marine_traffic_url(mmsi)
+                if marine_url:
+                    try:
+                        async with self.session.get(
+                            marine_url,
+                            headers=photo_headers,
+                            timeout=15,
+                        ) as response:
+                            response.raise_for_status()
+                            marine_html = await response.text()
+                        marine_photo_url = _marine_traffic_photo_candidate(
+                            marine_html, marine_url
+                        )
+                        if marine_photo_url:
+                            photo_url = marine_photo_url
+                            provider = "MarineTraffic"
+                            photo_headers["Referer"] = marine_url
+                            photo_auth = None
+                    except (ClientError, asyncio.TimeoutError) as err:
+                        _LOGGER.debug(
+                            "Direct MarineTraffic photo lookup failed for %s: %s",
+                            mmsi,
+                            err,
+                        )
+            if photo_url is None:
+                self._set_error(
+                    "No SearXNG, VesselFinder, or MarineTraffic photo found"
+                )
                 _LOGGER.debug(
                     "No photo result found for %s (%s)", vessel_name, mmsi
                 )

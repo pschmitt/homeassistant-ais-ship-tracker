@@ -15,7 +15,12 @@ from homeassistant.helpers.event import async_track_time_change
 
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
-from .entity import AisShipTrackerEntity, remove_legacy_entities, vessel_finder_url
+from .entity import (
+    AisShipTrackerEntity,
+    marine_traffic_url,
+    remove_legacy_entities,
+    vessel_finder_url,
+)
 from .tracker import AisTrackerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -157,6 +162,9 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
+        url = marine_traffic_url(attributes.get("mmsi"))
+        if url:
+            attributes["marinetraffic_url"] = url
         return attributes
 
     async def async_added_to_hass(self) -> None:
@@ -290,6 +298,9 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
+        url = marine_traffic_url(attributes.get("mmsi"))
+        if url:
+            attributes["marinetraffic_url"] = url
         return attributes
 
     async def async_added_to_hass(self) -> None:

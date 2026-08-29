@@ -12,7 +12,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
-from .entity import AisShipTrackerEntity, remove_legacy_entities, vessel_finder_url
+from .entity import (
+    AisShipTrackerEntity,
+    marine_traffic_url,
+    remove_legacy_entities,
+    vessel_finder_url,
+)
 
 _LOGGER = logging.getLogger(__name__)
 _PHOTO_LOOKUP_TIMEOUT = 45
@@ -116,6 +121,7 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                     "area_id": self.area_id,
                     "area_name": self.area_name,
                     "vessel_finder_url": vessel_finder_url(mmsi),
+                    "marinetraffic_url": marine_traffic_url(mmsi),
                 },
             )
 

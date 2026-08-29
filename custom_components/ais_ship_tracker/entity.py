@@ -17,6 +17,16 @@ def vessel_finder_url(mmsi: object) -> str | None:
     return f"https://www.vesselfinder.com/vessels/details/{value}" if value else None
 
 
+def marine_traffic_url(mmsi: object) -> str | None:
+    """Return the MarineTraffic details URL for an MMSI."""
+    value = str(mmsi).strip() if mmsi is not None else ""
+    return (
+        f"https://www.marinetraffic.com/en/ais/details/ships/mmsi:{value}"
+        if value
+        else None
+    )
+
+
 def remove_legacy_entities(
     hass: HomeAssistant, entry: ConfigEntry, unique_ids: set[str]
 ) -> None:

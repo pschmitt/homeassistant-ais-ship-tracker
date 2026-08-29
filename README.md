@@ -74,8 +74,8 @@ configured, the integration searches for the vessel name and MMSI and serves
 the selected image through Home Assistant's camera entity. Search results and
 VesselFinder pages are parsed with Beautiful Soup rather than relying on fixed
 HTML attribute ordering. If SearXNG is unavailable, rate-limited, or returns
-no supported image result, it makes a best-effort fallback request to the
-public VesselFinder details page and uses its main vessel photo when available.
+no supported image result, it tries the public VesselFinder and then
+MarineTraffic details pages for a main vessel photo.
 Local photo caching is optional and disabled by default. When enabled, the
 each downloaded image is cached by MMSI in Home Assistant storage and reused
 after a restart or when that vessel is seen again; without a cached image, a
@@ -117,11 +117,12 @@ removed; it will be recreated if it is observed again.
 Photo cameras include the current vessel's AIS attributes, the photo provider,
 source URL, photographer, and credit page, the generated `search_query` and
 `search_url`, and any lookup error as camera attributes. The last-passing-ship
-sensors, temporary per-vessel sensors, event entities, and photo cameras expose the same
-`vessel_finder_url` attribute whenever an MMSI is available. This makes it easy
-to link directly to the vessel's [VesselFinder details
-page](https://www.vesselfinder.com/). For example, the default `Home` area uses
-`sensor.ais_ship_tracker_home_last_passing_ship`.
+sensors, temporary per-vessel sensors, event entities, and photo cameras expose
+both `vessel_finder_url` and `marinetraffic_url` whenever an MMSI is available.
+The MarineTraffic link uses its `mmsi:<value>` route; its separate
+`shipid:<value>` route expects MarineTraffic's internal vessel ID. This makes it
+easy to link directly to the vessel details pages. For example, the default
+`Home` area uses `sensor.ais_ship_tracker_home_last_passing_ship`.
 
 ## License and branding
 
