@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from homeassistant.components.event import EventEntity
@@ -12,6 +13,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
 from .entity import AisShipTrackerEntity, remove_legacy_entities, vessel_finder_url
+
+_LOGGER = logging.getLogger(__name__)
+_PHOTO_LOOKUP_TIMEOUT = 45
 
 
 async def async_setup_entry(
@@ -83,7 +87,16 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
         async with self._event_lock:
             photo = self.entry.runtime_data.photos.get(self.area_id)
             if photo is not None:
-                await photo.async_refresh(force=True, ship_override=ship)
+                try:
+                    await asyncio.wait_for(
+                        photo.async_refresh(force=True, ship_override=ship),
+                        timeout=_PHOTO_LOOKUP_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    _LOGGER.warning(
+                        "Timed out waiting for the photo lookup for MMSI %s",
+                        mmsi,
+                    )
             self._trigger_event(
                 "ship_updated",
                 {
