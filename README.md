@@ -93,7 +93,7 @@ The integration creates these entities for every configured tracking area:
   until the first detection or restored state, with AIS data in its attributes.
 - `sensor.ais_ship_tracker_<area>_ships_today` and
   `sensor.ais_ship_tracker_<area>_ships_this_hour` — distinct MMSI counts for
-  the local calendar day and current clock hour.
+  the local calendar day and rolling last 3,600 seconds.
 - `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
   each newly detected MMSI in that area.
 - When SearXNG is configured,

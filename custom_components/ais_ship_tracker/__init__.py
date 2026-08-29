@@ -183,21 +183,9 @@ async def async_setup_entry(
 
     @callback
     def tracker_updated() -> None:
-        """Refresh the photo only when a new vessel becomes last seen."""
+        """Refresh configuration diagnostics when tracker data changes."""
         _update_config_issues(hass, entry, settings)
-        if not photos:
-            return
-        for tracking_area_id, photo in photos.items():
-            last_ship = tracker.last_ships.get(tracking_area_id)
-            mmsi = str(last_ship.get("mmsi", "")) if last_ship else ""
-            if mmsi == tracker_updated.last_mmsis.get(tracking_area_id):
-                continue
-            tracker_updated.last_mmsis[tracking_area_id] = mmsi
-            entry.async_create_background_task(
-                hass, photo.async_refresh(force=True), "ais_ship_tracker_refresh"
-            )
 
-    tracker_updated.last_mmsis = {}
     entry.async_on_unload(tracker.async_add_listener(tracker_updated))
 
     for photo in photos.values():

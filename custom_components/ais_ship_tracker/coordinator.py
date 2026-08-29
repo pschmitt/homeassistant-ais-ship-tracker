@@ -92,8 +92,6 @@ class ShipPhotoCoordinator:
         self._error = ""
         self._listeners: list[Callable[[], None]] = []
         self._lock = asyncio.Lock()
-        self._refresh_mmsi = ""
-        self._refresh_done = asyncio.Event()
         self._cached_photos: dict[str, dict[str, Any]] = {}
         self._store = Store(
             hass,
@@ -258,11 +256,16 @@ class ShipPhotoCoordinator:
 
         return remove_listener
 
-    async def async_refresh(self, *, force: bool = False) -> None:
+    async def async_refresh(
+        self,
+        *,
+        force: bool = False,
+        ship_override: dict[str, Any] | None = None,
+    ) -> None:
         """Search for and cache the current vessel photo."""
         if not self.searxng_url:
             return
-        ship = self.tracker.last_ships.get(self.area_id)
+        ship = ship_override or self.tracker.last_ships.get(self.area_id)
         if ship is None:
             self._set_error("No vessel has been detected yet")
             return
@@ -282,14 +285,11 @@ class ShipPhotoCoordinator:
 
         async with self._lock:
             self._last_attempt = datetime.now(UTC)
-            self._refresh_mmsi = mmsi
-            self._refresh_done.clear()
             if (
                 self._cache_photos
                 and (mmsi != self._mmsi or self._image is None)
                 and self._restore_cached_photo(mmsi)
             ):
-                self._refresh_done.set()
                 self._notify_listeners()
                 return
             self._vessel_name = vessel_name
@@ -408,22 +408,7 @@ class ShipPhotoCoordinator:
                 self._set_error(f"Photo lookup failed: {err}")
                 _LOGGER.warning("AIS ship photo lookup failed for %s: %s", mmsi, err)
             finally:
-                self._refresh_done.set()
                 self._notify_listeners()
-
-    async def async_wait_for_refresh(self, mmsi: str, timeout: float = 45) -> None:
-        """Wait until the photo lookup for an MMSI has completed."""
-        if self._refresh_mmsi != mmsi:
-            if self._mmsi == mmsi and (self._image is not None or self._error):
-                return
-            self._refresh_mmsi = mmsi
-            self._refresh_done.clear()
-        if self._refresh_done.is_set():
-            return
-        try:
-            await asyncio.wait_for(self._refresh_done.wait(), timeout)
-        except asyncio.TimeoutError:
-            _LOGGER.debug("Timed out waiting for AIS photo lookup for %s", mmsi)
 
     def _set_error(self, error: str) -> None:
         """Set an error while clearing the old photo."""

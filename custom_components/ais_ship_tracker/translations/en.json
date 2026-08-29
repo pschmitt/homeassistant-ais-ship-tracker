@@ -106,7 +106,7 @@
       "last_passing_ship": {"name": "Last Passing Ship"},
       "connection_status": {"name": "AIS Connection Status"},
       "ships_today": {"name": "Ships Today"},
-      "ships_this_hour": {"name": "Ships This Hour"}
+      "ships_this_hour": {"name": "Ships in Last Hour"}
     },
     "event": {
       "last_ship_updated": {"name": "Last Ship Updated"}

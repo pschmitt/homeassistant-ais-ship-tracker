@@ -406,7 +406,7 @@ class AisTrackerCoordinator:
         if period == "day":
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         else:
-            start = now.replace(minute=0, second=0, microsecond=0)
+            start = now - timedelta(seconds=3600)
 
         mmsis: set[str] = set()
         for sighting in self.ship_sightings.get(area_key, []):

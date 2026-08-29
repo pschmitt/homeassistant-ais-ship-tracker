@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from homeassistant.components.event import EventEntity
@@ -49,6 +50,7 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
         super().__init__(entry)
         self.entry = entry
         self._last_mmsi: str | None = None
+        self._event_lock = asyncio.Lock()
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to the tracked vessel entity."""
@@ -78,30 +80,31 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
         self, ship: dict[str, Any], mmsi: str
     ) -> None:
         """Emit the event after the matching photo lookup has finished."""
-        photo = self.entry.runtime_data.photos.get(self.area_id)
-        if photo is not None:
-            await photo.async_wait_for_refresh(mmsi)
-        self._trigger_event(
-            "ship_updated",
-            {
-                "ship_name": ship.get("ship_name"),
-                "mmsi": mmsi,
-                "latitude": ship.get("latitude"),
-                "longitude": ship.get("longitude"),
-                "speed_knots": ship.get("speed_knots"),
-                "course": ship.get("course"),
-                "heading": ship.get("heading"),
-                "navigational_status": ship.get("navigational_status"),
-                "vessel_class": ship.get("vessel_class"),
-                "destination": ship.get("destination"),
-                "eta": ship.get("eta"),
-                "vessel_type": ship.get("vessel_type"),
-                "spotted_time": ship.get("spotted_time"),
-                "area_id": self.area_id,
-                "area_name": self.area_name,
-                "vessel_finder_url": vessel_finder_url(mmsi),
-            },
-        )
+        async with self._event_lock:
+            photo = self.entry.runtime_data.photos.get(self.area_id)
+            if photo is not None:
+                await photo.async_refresh(force=True, ship_override=ship)
+            self._trigger_event(
+                "ship_updated",
+                {
+                    "ship_name": ship.get("ship_name"),
+                    "mmsi": mmsi,
+                    "latitude": ship.get("latitude"),
+                    "longitude": ship.get("longitude"),
+                    "speed_knots": ship.get("speed_knots"),
+                    "course": ship.get("course"),
+                    "heading": ship.get("heading"),
+                    "navigational_status": ship.get("navigational_status"),
+                    "vessel_class": ship.get("vessel_class"),
+                    "destination": ship.get("destination"),
+                    "eta": ship.get("eta"),
+                    "vessel_type": ship.get("vessel_type"),
+                    "spotted_time": ship.get("spotted_time"),
+                    "area_id": self.area_id,
+                    "area_name": self.area_name,
+                    "vessel_finder_url": vessel_finder_url(mmsi),
+                },
+            )
 
     @staticmethod
     def _mmsi(attributes: dict[str, Any]) -> str | None:

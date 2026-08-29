@@ -51,13 +51,13 @@ async def async_setup_entry(
     async_add_entities(entities)
 
     @callback
-    def hour_changed(_now: Any) -> None:
-        """Refresh the counters when a new clock hour begins."""
+    def counter_time_changed(_now: Any) -> None:
+        """Refresh the rolling counters as their windows move."""
         for entity in count_sensors:
             entity.async_write_ha_state()
 
     entry.async_on_unload(
-        async_track_time_change(hass, hour_changed, minute=0, second=0)
+        async_track_time_change(hass, counter_time_changed, second=0)
     )
     entry.async_create_background_task(
         hass,
@@ -225,7 +225,7 @@ class ShipCountSensor(AisShipTrackerEntity, SensorEntity):
         self._attr_name = (
             f"{area_name(area, index)} Ships Today"
             if period == "day"
-            else f"{area_name(area, index)} Ships This Hour"
+            else f"{area_name(area, index)} Ships in Last Hour"
         )
         self._attr_unique_id = f"{suffix}_{self.area_id}"
         self._attr_suggested_object_id = f"{area_slug(area, index)}_{suffix}"
