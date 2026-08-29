@@ -45,17 +45,27 @@ single AISStream subscription. Open **Configure** for the integration and use
 **Manage tracking areas** to select the source zone for each named area, add
 another area, or remove one; shared settings are edited separately.
 
-The integration also creates one passive HA zone per configured area for map
-display; the first is `zone.ais_ship_tracking_area` and additional zones
+The integration also creates one passive HA zone for each configured area for
+map display; the first is `zone.ais_ship_tracking_area` and additional zones
 include the configured area name. These mirror zones follow their selected
 source zone and are updated when that source changes. They are safe to use on
 maps without affecting presence tracking, and are removed with the
 integration.
 
-Class B transponders, an MMSI watchlist, and map entity retention can be
-changed later from the integration's options. Map entities are limited to ten
-active vessels by default; this limit is configurable, and setting it to zero
-keeps the per-area last-ship entities without creating per-vessel sensors.
+Class B transponders, an MMSI watchlist, map entity retention, and the maximum
+number of map entities can be changed later from the integration's options. Map
+entities are limited to ten active vessels by default; this limit is
+configurable, and setting it to zero keeps the per-area last-ship entities
+without creating per-vessel sensors. A map entity is considered stale when it
+has not reported for 30 minutes by default. The `map_timeout_minutes` setting
+accepts 5 minutes to 24 hours. Stale entities are removed from both Home
+Assistant and the entity registry, and are recreated if the vessel is observed
+again. Individual map entities are not restored after a Home Assistant restart.
+
+The per-area `Last Passing Ship` entities are different: they retain the most
+recently detected vessel indefinitely and restore it after a restart. They are
+replaced when another vessel is detected and removed when the integration or
+tracking area is removed.
 
 SearXNG is optional. If no URL is configured, no photo camera is created. If
 configured, the integration searches for the vessel name and MMSI and serves
