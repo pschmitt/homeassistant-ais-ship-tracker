@@ -181,6 +181,20 @@ class AisTrackerCoordinator:
                 migrated = True
         for area_key, ship in self.last_ships.items():
             self._seen_mmsis_by_area[area_key] = {str(ship["mmsi"])}
+            spotted_time = ship.get("spotted_time")
+            if not spotted_time:
+                continue
+            if any(
+                sighting.get("mmsi") == str(ship["mmsi"])
+                and sighting.get("spotted_time") == str(spotted_time)
+                for sighting in self.ship_sightings.get(area_key, [])
+            ):
+                continue
+            self.ship_sightings.setdefault(area_key, []).append(
+                {"mmsi": str(ship["mmsi"]), "spotted_time": str(spotted_time)}
+            )
+            migrated = True
+        self._purge_old_sightings()
         if migrated:
             await self._store.async_save(self._stored_data())
         self._purge_old_sightings()
