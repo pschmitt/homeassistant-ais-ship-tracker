@@ -14,7 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
-from .entity import AisShipTrackerEntity, remove_legacy_entities
+from .entity import AisShipTrackerEntity, remove_legacy_entities, vessel_finder_url
 from .tracker import AisTrackerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -133,7 +133,11 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the latest vessel details."""
-        return self.coordinator.last_ships.get(self.area_id, {})
+        attributes = dict(self.coordinator.last_ships.get(self.area_id, {}))
+        url = vessel_finder_url(attributes.get("mmsi"))
+        if url:
+            attributes["vessel_finder_url"] = url
+        return attributes
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""
@@ -217,9 +221,13 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return vessel position and AIS details."""
-        return {
+        attributes = {
             key: value for key, value in self._ship.items() if not key.startswith("_")
         }
+        url = vessel_finder_url(attributes.get("mmsi"))
+        if url:
+            attributes["vessel_finder_url"] = url
+        return attributes
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""

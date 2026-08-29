@@ -16,6 +16,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 
 from .const import DOMAIN, ISSUE_SEARXNG_AUTHENTICATION, ISSUE_SEARXNG_ENDPOINT
+from .entity import vessel_finder_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -112,6 +113,7 @@ class ShipPhotoCoordinator:
             **ship_attributes,
             "vessel_name": vessel_name or None,
             "mmsi": mmsi or None,
+            "vessel_finder_url": vessel_finder_url(mmsi),
             "provider": self._provider or None,
             "photo_url": self._photo_url or None,
             "search_query": search_query or None,

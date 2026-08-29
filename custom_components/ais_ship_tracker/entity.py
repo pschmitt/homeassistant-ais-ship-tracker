@@ -11,6 +11,12 @@ from homeassistant.helpers.entity import Entity
 from .const import CONF_SEARXNG_URL, DOMAIN
 
 
+def vessel_finder_url(mmsi: object) -> str | None:
+    """Return the VesselFinder details URL for an MMSI."""
+    value = str(mmsi).strip() if mmsi is not None else ""
+    return f"https://www.vesselfinder.com/vessels/details/{value}" if value else None
+
+
 def remove_legacy_entities(
     hass: HomeAssistant, entry: ConfigEntry, unique_ids: set[str]
 ) -> None:

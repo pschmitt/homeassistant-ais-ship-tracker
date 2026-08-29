@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
-from .entity import AisShipTrackerEntity, remove_legacy_entities
+from .entity import AisShipTrackerEntity, remove_legacy_entities, vessel_finder_url
 
 
 async def async_setup_entry(
@@ -82,6 +82,7 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                 "spotted_time": ship.get("spotted_time"),
                 "area_id": self.area_id,
                 "area_name": self.area_name,
+                "vessel_finder_url": vessel_finder_url(mmsi),
             },
         )
 
