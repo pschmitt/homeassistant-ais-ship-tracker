@@ -83,6 +83,7 @@ class ShipPhotoCoordinator:
         self._error = ""
         self._listeners: list[Callable[[], None]] = []
         self._lock = asyncio.Lock()
+        self._cached_photos: dict[str, dict[str, Any]] = {}
         self._store = Store(
             hass,
             _PHOTO_STORE_VERSION,
@@ -94,38 +95,62 @@ class ShipPhotoCoordinator:
         if not self._cache_photos:
             return
         stored = await self._store.async_load()
-        if not isinstance(stored, dict) or not stored.get("image"):
+        if not isinstance(stored, dict):
             return
 
-        stored_mmsi = str(stored.get("mmsi") or "")
+        if isinstance(stored.get("photos"), dict):
+            self._cached_photos = {
+                str(mmsi): payload
+                for mmsi, payload in stored["photos"].items()
+                if isinstance(payload, dict) and payload.get("image")
+            }
+        elif stored.get("image") and stored.get("mmsi"):
+            # Migrate the initial single-photo cache format.
+            self._cached_photos[str(stored["mmsi"])] = dict(stored)
+
         current_ship = self.tracker.last_ships.get(self.area_id)
-        if current_ship and str(current_ship.get("mmsi") or "") != stored_mmsi:
-            return
+        if current_ship:
+            self._restore_cached_photo(str(current_ship.get("mmsi") or ""))
+
+    def _restore_cached_photo(self, mmsi: str) -> bool:
+        """Restore one cached MMSI photo into the active camera state."""
+        if not mmsi:
+            return False
+        stored = self._cached_photos.get(mmsi)
+        if not stored:
+            return False
 
         try:
-            image = base64.b64decode(stored["image"], validate=True)
+            image = base64.b64decode(str(stored["image"]), validate=True)
         except (TypeError, ValueError):
-            _LOGGER.warning("Ignoring invalid cached AIS photo for %s", self.area_id)
-            return
+            _LOGGER.warning("Ignoring invalid cached AIS photo for MMSI %s", mmsi)
+            self._cached_photos.pop(mmsi, None)
+            return False
         if not image:
-            return
+            return False
 
         self._image = image
         self._content_type = str(stored.get("content_type") or "image/jpeg")
-        self._mmsi = stored_mmsi
+        self._mmsi = mmsi
         self._vessel_name = str(stored.get("vessel_name") or "")
         self._provider = str(stored.get("provider") or "")
         self._photo_url = str(stored.get("photo_url") or "")
         self._last_attempt = datetime.now(UTC)
+        self._error = ""
         last_updated = stored.get("last_updated")
         if isinstance(last_updated, str):
             try:
                 self._last_updated = datetime.fromisoformat(last_updated)
             except ValueError:
                 self._last_updated = None
+        return True
 
     def _stored_data(self) -> dict[str, Any]:
         """Return the cached photo payload for Home Assistant storage."""
+        return {"photos": self._cached_photos}
+
+    def _current_photo_data(self) -> dict[str, Any]:
+        """Return the active photo payload for the MMSI cache."""
         return {
             "image": base64.b64encode(self._image or b"").decode("ascii"),
             "content_type": self._content_type,
@@ -202,6 +227,8 @@ class ShipPhotoCoordinator:
         mmsi = str(ship.get("mmsi", ""))
         if mmsi != self._mmsi:
             return True
+        if self._cache_photos and self._image is not None:
+            return False
         return (
             self._last_attempt is None
             or datetime.now(UTC) - self._last_attempt >= _RETRY_INTERVAL
@@ -243,6 +270,12 @@ class ShipPhotoCoordinator:
 
         async with self._lock:
             self._last_attempt = datetime.now(UTC)
+            if (
+                self._cache_photos
+                and (mmsi != self._mmsi or self._image is None)
+                and self._restore_cached_photo(mmsi)
+            ):
+                return
             self._vessel_name = vessel_name
             self._mmsi = mmsi
             self._provider = ""
@@ -328,6 +361,7 @@ class ShipPhotoCoordinator:
                 self._photo_url = photo_url
                 self._last_updated = datetime.now(UTC)
                 if self._cache_photos:
+                    self._cached_photos[mmsi] = self._current_photo_data()
                     await self._store.async_save(self._stored_data())
                 _LOGGER.debug(
                     "Updated %s photo for %s (%s) via %s",

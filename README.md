@@ -73,8 +73,10 @@ the selected image through Home Assistant's camera entity. If SearXNG returns
 no supported image result, it makes a best-effort fallback request to the
 public VesselFinder details page and uses its main vessel photo when available.
 Local photo caching is optional and disabled by default. When enabled, the
-downloaded image is cached in Home Assistant storage and reused after a
-restart; without a cached image, a lookup is retried on startup.
+each downloaded image is cached by MMSI in Home Assistant storage and reused
+after a restart or when that vessel is seen again; without a cached image, a
+lookup is retried on startup. Cached entries are retained until the integration
+is removed or its storage is cleared.
 If the SearXNG endpoint is protected by an external HTTP Basic Auth layer,
 configure its optional username and password; these are not SearXNG account
 credentials.
