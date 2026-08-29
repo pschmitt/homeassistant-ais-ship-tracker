@@ -47,6 +47,7 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
         self._attr_unique_id = f"last_ship_updated_{self.area_id}"
         self._attr_suggested_object_id = f"{area_slug(area, index)}_last_ship_updated"
         super().__init__(entry)
+        self.entry = entry
         self._last_mmsi: str | None = None
 
     async def async_added_to_hass(self) -> None:
@@ -67,6 +68,19 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
         if not mmsi or mmsi == self._last_mmsi:
             return
         self._last_mmsi = mmsi
+        self.entry.async_create_background_task(
+            self.hass,
+            self._async_trigger_event(dict(ship), mmsi),
+            "ais_ship_tracker_ship_updated_event",
+        )
+
+    async def _async_trigger_event(
+        self, ship: dict[str, Any], mmsi: str
+    ) -> None:
+        """Emit the event after the matching photo lookup has finished."""
+        photo = self.entry.runtime_data.photos.get(self.area_id)
+        if photo is not None:
+            await photo.async_wait_for_refresh(mmsi)
         self._trigger_event(
             "ship_updated",
             {
@@ -79,6 +93,9 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                 "heading": ship.get("heading"),
                 "navigational_status": ship.get("navigational_status"),
                 "vessel_class": ship.get("vessel_class"),
+                "destination": ship.get("destination"),
+                "eta": ship.get("eta"),
+                "vessel_type": ship.get("vessel_type"),
                 "spotted_time": ship.get("spotted_time"),
                 "area_id": self.area_id,
                 "area_name": self.area_name,
