@@ -13,7 +13,8 @@ from homeassistant.core import callback
 from homeassistant.helpers.selector import (BooleanSelector, NumberSelector,
                                             NumberSelectorConfig, TextSelector,
                                             TextSelectorConfig,
-                                            TextSelectorType)
+                                            TextSelectorType, SelectSelector,
+                                            SelectSelectorConfig)
 
 from .areas import area_form_defaults, area_from_form, configured_areas
 from .const import (CONF_API_KEY, CONF_AREA_COUNT, CONF_AREA_NAME, CONF_AREAS,
@@ -273,57 +274,159 @@ class AisShipTrackerConfigFlow(
 class AisShipTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
     """Handle options for an existing AIS Ship Tracker entry."""
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None):
-        """Manage common settings before collecting areas."""
+    def _initialize_pending(self) -> None:
+        """Copy current settings into the editable options-flow state."""
+        if hasattr(self, "_pending_settings"):
+            return
         current = {**self.config_entry.data, **self.config_entry.options}
-        current_areas = configured_areas(current)
+        self._pending_settings = {
+            key: value for key, value in current.items() if key != CONF_AREAS
+        }
+        self._pending_areas = [dict(area) for area in configured_areas(current)]
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        """Show the options-flow navigation menu."""
+        self._initialize_pending()
+        return self.async_show_menu(
+            step_id="init", menu_options=["general", "areas", "finish"]
+        )
+
+    async def async_step_general(self, user_input: dict[str, Any] | None = None):
+        """Manage settings shared by all tracking areas."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            area_count = int(user_input.pop(CONF_AREA_COUNT))
             user_input = _clean_common_input(user_input)
             if not user_input.get(CONF_API_KEY):
-                user_input[CONF_API_KEY] = current.get(CONF_API_KEY, "")
+                user_input[CONF_API_KEY] = self._pending_settings.get(
+                    CONF_API_KEY, ""
+                )
             if not user_input.get(CONF_SEARXNG_PASSWORD):
                 user_input.pop(CONF_SEARXNG_PASSWORD, None)
-                if current.get(CONF_SEARXNG_PASSWORD):
-                    user_input[CONF_SEARXNG_PASSWORD] = current[CONF_SEARXNG_PASSWORD]
+                if self._pending_settings.get(CONF_SEARXNG_PASSWORD):
+                    user_input[CONF_SEARXNG_PASSWORD] = self._pending_settings[
+                        CONF_SEARXNG_PASSWORD
+                    ]
             error = _validate_common_input(user_input)
             if error:
                 errors["base"] = error
             else:
                 self._pending_settings = user_input
-                self._pending_areas = []
-                self._area_count = area_count
-                self._area_index = 0
-                self._area_defaults = [
-                    (
-                        area_form_defaults(current_areas[index])
-                        if index < len(current_areas)
-                        else {}
-                    )
-                    for index in range(area_count)
-                ]
-                return await self._async_step_area()
+                return await self.async_step_init()
 
-        suggested = dict(current)
+        suggested = dict(self._pending_settings)
         suggested.pop(CONF_API_KEY, None)
         suggested.pop(CONF_SEARXNG_PASSWORD, None)
-        suggested[CONF_AREA_COUNT] = len(current_areas)
         return self.async_show_form(
-            step_id="init",
+            step_id="general",
             data_schema=self.add_suggested_values_to_schema(
-                _common_schema(api_key_required=False), suggested
+                _common_schema(api_key_required=False, include_area_count=False),
+                suggested,
             ),
             errors=errors,
         )
 
-    def _async_finish_area_flow(self):
-        """Save common settings and all configured areas."""
+    async def async_step_areas(self, user_input: dict[str, Any] | None = None):
+        """Choose an area to edit, remove, or add."""
+        self._initialize_pending()
+        if user_input is not None:
+            action = str(user_input["area_action"])
+            if action == "back":
+                return await self.async_step_init()
+            if action == "add":
+                self._area_index = None
+                return await self.async_step_area()
+            self._area_index = int(action.split(":", 1)[1])
+            if action.startswith("remove:"):
+                return await self.async_step_remove_area()
+            return await self.async_step_area()
+
+        options = [
+            {"value": "add", "label": "Add tracking area"},
+            *[
+                {"value": f"edit:{index}", "label": f"Edit {area['name']}"}
+                for index, area in enumerate(self._pending_areas)
+            ],
+            *[
+                {"value": f"remove:{index}", "label": f"Remove {area['name']}"}
+                for index, area in enumerate(self._pending_areas)
+            ],
+            {"value": "back", "label": "Back to settings"},
+        ]
+        return self.async_show_form(
+            step_id="areas",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("area_action"): SelectSelector(
+                        SelectSelectorConfig(options=options)
+                    )
+                }
+            ),
+        )
+
+    async def async_step_area(self, user_input: dict[str, Any] | None = None):
+        """Add or edit one tracking area."""
+        errors: dict[str, str] = {}
+        is_new = self._area_index is None
+        if is_new:
+            defaults = {
+                CONF_AREA_NAME: f"Area {len(self._pending_areas) + 1}",
+                **_home_defaults(self.hass),
+            }
+        else:
+            defaults = area_form_defaults(self._pending_areas[self._area_index])
+        if user_input is not None:
+            error = _validate_area(user_input)
+            if error:
+                errors["base"] = error
+            else:
+                area = area_from_form(
+                    user_input,
+                    self._area_index + 1
+                    if self._area_index is not None
+                    else len(self._pending_areas) + 1,
+                )
+                if is_new:
+                    self._pending_areas.append(area)
+                else:
+                    area["id"] = self._pending_areas[self._area_index].get(
+                        "id", area["id"]
+                    )
+                    self._pending_areas[self._area_index] = area
+                return await self.async_step_areas()
+        return self.async_show_form(
+            step_id="area",
+            data_schema=_area_schema(defaults),
+            description_placeholders={
+                "area_name": str(defaults.get(CONF_AREA_NAME, ""))
+            },
+            errors=errors,
+        )
+
+    async def async_step_remove_area(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Confirm removal of one tracking area."""
+        errors: dict[str, str] = {}
+        area = self._pending_areas[self._area_index]
+        if user_input is not None:
+            if len(self._pending_areas) == 1:
+                errors["base"] = "cannot_remove_last_area"
+            elif user_input.get("confirm_remove"):
+                self._pending_areas.pop(self._area_index)
+                return await self.async_step_areas()
+        return self.async_show_form(
+            step_id="remove_area",
+            data_schema=vol.Schema(
+                {vol.Required("confirm_remove", default=False): BooleanSelector()}
+            ),
+            description_placeholders={"area_name": str(area.get("name", ""))},
+            errors=errors,
+        )
+
+    async def async_step_finish(self, user_input: dict[str, Any] | None = None):
+        """Save the edited settings and areas."""
+        del user_input
         return self.async_create_entry(
             title="",
             data={**self._pending_settings, CONF_AREAS: self._pending_areas},
         )
-
-    async def async_step_area(self, user_input: dict[str, Any] | None = None):
-        """Handle one options-flow area."""
-        return await self._async_step_area(user_input)

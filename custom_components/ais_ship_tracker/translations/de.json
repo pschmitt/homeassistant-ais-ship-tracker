@@ -47,7 +47,16 @@
     "step": {
       "init": {
         "title": "AIS-Schiffsverfolgung – Einstellungen",
-        "description": "Passe die gemeinsamen AIS-Einstellungen an und wähle die Anzahl der Verfolgungsgebiete.",
+        "description": "Wähle gemeinsame Einstellungen oder verwalte die Verfolgungsgebiete.",
+        "menu_options": {
+          "general": "Allgemeine Einstellungen",
+          "areas": "Verfolgungsgebiete verwalten",
+          "finish": "Änderungen speichern"
+        }
+      },
+      "general": {
+        "title": "Allgemeine AIS-Einstellungen",
+        "description": "Einstellungen, die für alle Verfolgungsgebiete gelten.",
         "data": {
           "api_key": "AISStream-API-Schlüssel (leer lassen, um ihn beizubehalten)",
           "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
@@ -57,19 +66,22 @@
           "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
           "searxng_url": "SearXNG-URL (optional)",
           "searxng_username": "SearXNG-Benutzername",
-          "searxng_password": "SearXNG-Passwort (leer lassen, um es beizubehalten)",
-          "area_count": "Anzahl der Verfolgungsgebiete"
+          "searxng_password": "SearXNG-Passwort (leer lassen, um es beizubehalten)"
         },
         "error": {
           "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
-          "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein.",
-          "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
-          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
-          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+          "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+        }
+      },
+      "areas": {
+        "title": "Verfolgungsgebiete verwalten",
+        "description": "Bearbeite ein Gebiet, füge ein neues hinzu oder entferne ein Gebiet.",
+        "data": {
+          "area_action": "Aktion für das Gebiet"
         }
       },
       "area": {
-        "title": "Verfolgungsgebiet {area_number} von {area_count}",
+        "title": "Verfolgungsgebiet",
         "description": "Lege die Begrenzung und den Radius der passiven Zone für dieses Gebiet fest.",
         "data": {
           "area_name": "Name des Gebiets",
@@ -83,6 +95,16 @@
           "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
           "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
           "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+        }
+      },
+      "remove_area": {
+        "title": "Verfolgungsgebiet entfernen",
+        "description": "Das Verfolgungsgebiet „{area_name}“ entfernen?",
+        "data": {
+          "confirm_remove": "Dieses Verfolgungsgebiet entfernen"
+        },
+        "error": {
+          "cannot_remove_last_area": "Mindestens ein Verfolgungsgebiet muss bestehen bleiben."
         }
       }
     }

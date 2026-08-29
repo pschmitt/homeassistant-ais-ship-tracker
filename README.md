@@ -45,8 +45,10 @@ East: 13.3190       North: 52.5235
 
 When adding the integration, the first area's coordinates and radius are
 initially derived from Home Assistant's `zone.home`. They remain fully
-editable in the options flow. The integration creates one passive HA zone per
-area; the first is `zone.ais_ship_tracking_area` and additional zones include
+editable in the options flow. Open **Configure** for the integration and use
+**Manage tracking areas** to edit a named area, add another, or remove one;
+shared settings are edited separately. The integration creates one passive HA
+zone per area; the first is `zone.ais_ship_tracking_area` and additional zones include
 the configured area name. Each zone is centered on its bounding box and has a
 configurable radius in metres. These zones are safe to use on maps without
 affecting presence tracking. Zones are updated when the integration is

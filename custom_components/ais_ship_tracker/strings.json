@@ -47,7 +47,16 @@
     "step": {
       "init": {
         "title": "AIS Ship Tracker settings",
-        "description": "Adjust shared AIS settings and choose how many tracking areas to configure.",
+        "description": "Choose shared settings or manage tracking areas.",
+        "menu_options": {
+          "general": "General settings",
+          "areas": "Manage tracking areas",
+          "finish": "Save changes"
+        }
+      },
+      "general": {
+        "title": "General AIS settings",
+        "description": "Settings shared by all tracking areas.",
         "data": {
           "api_key": "AISStream API key (leave blank to keep it)",
           "enable_map_entities": "Create map vessel entities",
@@ -57,19 +66,22 @@
           "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
-          "searxng_password": "SearXNG password (leave blank to keep it)",
-          "area_count": "Number of tracking areas"
+          "searxng_password": "SearXNG password (leave blank to keep it)"
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
-          "invalid_url": "Enter a valid HTTP or HTTPS URL.",
-          "invalid_area_name": "Enter a name for this tracking area.",
-          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
-          "invalid_radius": "Enter a positive target zone radius."
+          "invalid_url": "Enter a valid HTTP or HTTPS URL."
+        }
+      },
+      "areas": {
+        "title": "Manage tracking areas",
+        "description": "Edit an existing area, add a new one, or remove an area.",
+        "data": {
+          "area_action": "Area action"
         }
       },
       "area": {
-        "title": "Tracking area {area_number} of {area_count}",
+        "title": "Tracking area",
         "description": "Define the bounding box and passive zone radius for this area.",
         "data": {
           "area_name": "Area name",
@@ -83,6 +95,16 @@
           "invalid_area_name": "Enter a name for this tracking area.",
           "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
           "invalid_radius": "Enter a positive target zone radius."
+        }
+      },
+      "remove_area": {
+        "title": "Remove tracking area",
+        "description": "Remove the tracking area \"{area_name}\"?",
+        "data": {
+          "confirm_remove": "Remove this tracking area"
+        },
+        "error": {
+          "cannot_remove_last_area": "At least one tracking area must remain."
         }
       }
     }
