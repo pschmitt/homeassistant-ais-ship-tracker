@@ -9,7 +9,8 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 
 - Persistent `Last Passing Ship` state, restored after Home Assistant restarts.
 - Connection status and an event fired when a new vessel becomes the last seen vessel.
-- Optional per-vessel sensors for map cards.
+- A bounded set of temporary per-vessel sensors for map cards; expired vessel
+  entities are removed from Home Assistant automatically.
 - Optional SearXNG image search, preferring MarineTraffic and falling back to
   VesselFinder, exposed as a `camera` entity.
 - Config flow and options flow for one shared API key, multiple named tracking
@@ -52,7 +53,9 @@ affecting presence tracking. Zones are updated when the integration is
 reconfigured and removed when the integration is removed.
 
 Class B transponders, an MMSI watchlist, and map entity retention can be
-changed later from the integration's options.
+changed later from the integration's options. Map entities are limited to ten
+active vessels by default; this limit is configurable, and setting it to zero
+keeps the shared last-ship entities without creating per-vessel sensors.
 
 SearXNG is optional. If no URL is configured, no photo camera is created. If
 configured, the integration searches for the vessel name and MMSI and serves
@@ -72,10 +75,12 @@ The integration creates these entities unconditionally:
 - `event.ais_ship_tracker_last_ship_updated` — emits `ship_updated` for each
   newly detected MMSI.
 
-When map entities are enabled, each active vessel also gets a sensor named
-`sensor.ais_ship_<mmsi>` with latitude, longitude, speed, heading, and other
-AIS attributes. These entities become unavailable after the configured
-timeout and are recreated as needed.
+When map entities are enabled, up to the configured maximum number of active
+vessels get sensors named `sensor.ais_ship_tracker_<ship-name>` with latitude,
+longitude, speed, heading, and other AIS attributes. Their unique IDs contain
+the MMSI. When a vessel expires from the map
+timeout or is evicted by the limit, its entity and entity-registry entry are
+removed; it will be recreated if it is observed again.
 
 When SearXNG is configured, the integration additionally creates
 `camera.ais_ship_tracker_last_passing_ship_photo`. It includes the provider,

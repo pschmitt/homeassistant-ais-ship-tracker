@@ -11,8 +11,9 @@ from . import AisShipTrackerConfigEntry
 from .areas import configured_areas
 from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
                     CONF_INCLUDE_CLASS_B, CONF_MAP_TIMEOUT_MINUTES,
-                    CONF_SEARXNG_PASSWORD, CONF_SEARXNG_URL,
-                    CONF_SEARXNG_USERNAME, CONF_VESSEL_WATCHLIST)
+                    CONF_MAX_MAP_ENTITIES, CONF_SEARXNG_PASSWORD,
+                    CONF_SEARXNG_URL, CONF_SEARXNG_USERNAME,
+                    CONF_VESSEL_WATCHLIST)
 
 
 async def async_get_config_entry_diagnostics(
@@ -44,6 +45,7 @@ async def async_get_config_entry_diagnostics(
             CONF_INCLUDE_CLASS_B: settings.get(CONF_INCLUDE_CLASS_B),
             CONF_VESSEL_WATCHLIST: settings.get(CONF_VESSEL_WATCHLIST),
             CONF_MAP_TIMEOUT_MINUTES: settings.get(CONF_MAP_TIMEOUT_MINUTES),
+            CONF_MAX_MAP_ENTITIES: settings.get(CONF_MAX_MAP_ENTITIES, 10),
             CONF_SEARXNG_URL: settings.get(CONF_SEARXNG_URL),
             CONF_SEARXNG_USERNAME: settings.get(CONF_SEARXNG_USERNAME),
             "areas": configured_areas(settings),

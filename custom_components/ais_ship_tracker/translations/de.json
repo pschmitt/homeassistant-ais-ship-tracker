@@ -1,0 +1,102 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "AIS-Schiffsverfolgung",
+        "description": "Verfolge Schiffe in einem oder mehreren Gebieten und suche optional über SearXNG nach Fotos.",
+        "data": {
+          "api_key": "AISStream-API-Schlüssel",
+          "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+          "include_class_b": "Class-B-Transponder einschließen",
+          "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+          "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+          "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+          "searxng_url": "SearXNG-URL (optional)",
+          "searxng_username": "SearXNG-Benutzername",
+          "searxng_password": "SearXNG-Passwort",
+          "area_count": "Anzahl der Verfolgungsgebiete"
+        },
+        "error": {
+          "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+          "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein.",
+          "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
+          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+        }
+      },
+      "area": {
+        "title": "Verfolgungsgebiet {area_number} von {area_count}",
+        "description": "Lege die Begrenzung und den Radius der passiven Zone für dieses Gebiet fest.",
+        "data": {
+          "area_name": "Name des Gebiets",
+          "longitude_west": "Westlicher Längengrad",
+          "latitude_south": "Südlicher Breitengrad",
+          "longitude_east": "Östlicher Längengrad",
+          "latitude_north": "Nördlicher Breitengrad",
+          "zone_radius": "Radius der passiven Zone (Meter)"
+        },
+        "error": {
+          "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
+          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AIS-Schiffsverfolgung – Einstellungen",
+        "description": "Passe die gemeinsamen AIS-Einstellungen an und wähle die Anzahl der Verfolgungsgebiete.",
+        "data": {
+          "api_key": "AISStream-API-Schlüssel (leer lassen, um ihn beizubehalten)",
+          "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+          "include_class_b": "Class-B-Transponder einschließen",
+          "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+          "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+          "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+          "searxng_url": "SearXNG-URL (optional)",
+          "searxng_username": "SearXNG-Benutzername",
+          "searxng_password": "SearXNG-Passwort (leer lassen, um es beizubehalten)",
+          "area_count": "Anzahl der Verfolgungsgebiete"
+        },
+        "error": {
+          "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+          "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein.",
+          "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
+          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+        }
+      },
+      "area": {
+        "title": "Verfolgungsgebiet {area_number} von {area_count}",
+        "description": "Lege die Begrenzung und den Radius der passiven Zone für dieses Gebiet fest.",
+        "data": {
+          "area_name": "Name des Gebiets",
+          "longitude_west": "Westlicher Längengrad",
+          "latitude_south": "Südlicher Breitengrad",
+          "longitude_east": "Östlicher Längengrad",
+          "latitude_north": "Nördlicher Breitengrad",
+          "zone_radius": "Radius der passiven Zone (Meter)"
+        },
+        "error": {
+          "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
+          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_passing_ship": {"name": "Zuletzt vorbeigefahrenes Schiff"},
+      "connection_status": {"name": "AIS-Verbindungsstatus"}
+    },
+    "event": {
+      "last_ship_updated": {"name": "Letzte Schiffsaktualisierung"}
+    },
+    "camera": {
+      "last_passing_ship_photo": {"name": "Foto des zuletzt vorbeigefahrenen Schiffs"}
+    }
+  }
+}

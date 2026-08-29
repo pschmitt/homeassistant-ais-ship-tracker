@@ -17,8 +17,8 @@ from homeassistant.helpers.storage import Store
 from .areas import configured_areas
 from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
                     CONF_INCLUDE_CLASS_B, CONF_MAP_TIMEOUT_MINUTES,
-                    CONF_VESSEL_WATCHLIST, DOMAIN, ISSUE_AIS_AUTHENTICATION,
-                    ISSUE_AIS_CONNECTION)
+                    CONF_MAX_MAP_ENTITIES, CONF_VESSEL_WATCHLIST, DOMAIN,
+                    ISSUE_AIS_AUTHENTICATION, ISSUE_AIS_CONNECTION)
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
@@ -116,6 +116,11 @@ class AisTrackerCoordinator:
             for item in raw.split(",")
             if item.strip().isdigit() and len(item.strip()) == 9
         ]
+
+    @property
+    def max_map_entities(self) -> int:
+        """Return the maximum number of active vessel entities to expose."""
+        return max(0, int(self.settings.get(CONF_MAX_MAP_ENTITIES, 10)))
 
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
@@ -289,11 +294,29 @@ class AisTrackerCoordinator:
         ship.update(self._static_ship_data.get(mmsi, {}))
         ship["_last_seen"] = now
         self.ships[mmsi] = ship
+        self._trim_map_ships()
         if mmsi not in self._seen_mmsis:
             self._seen_mmsis.add(mmsi)
             self.last_ship = self._public_ship(ship)
             self.hass.async_create_task(self._store.async_save(self.last_ship))
         self._notify()
+
+    def _trim_map_ships(self) -> None:
+        """Keep only the most recently reported vessels for map entities."""
+        if not self.map_entities_enabled:
+            self.ships.clear()
+            return
+        excess = len(self.ships) - self.max_map_entities
+        if excess <= 0:
+            return
+        oldest = sorted(
+            self.ships,
+            key=lambda mmsi: self.ships[mmsi].get(
+                "_last_seen", datetime.min.replace(tzinfo=UTC)
+            ),
+        )[:excess]
+        for mmsi in oldest:
+            self.ships.pop(mmsi, None)
 
     def _handle_static_data(self, mmsi: str, message: dict[str, Any]) -> None:
         """Merge static vessel metadata into the tracked vessel."""

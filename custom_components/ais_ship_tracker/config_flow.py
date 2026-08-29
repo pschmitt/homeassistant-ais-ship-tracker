@@ -20,9 +20,10 @@ from .const import (CONF_API_KEY, CONF_AREA_COUNT, CONF_AREA_NAME, CONF_AREAS,
                     CONF_ENABLE_MAP_ENTITIES, CONF_INCLUDE_CLASS_B,
                     CONF_LATITUDE_NORTH, CONF_LATITUDE_SOUTH,
                     CONF_LONGITUDE_EAST, CONF_LONGITUDE_WEST,
-                    CONF_MAP_TIMEOUT_MINUTES, CONF_SEARXNG_PASSWORD,
-                    CONF_SEARXNG_URL, CONF_SEARXNG_USERNAME,
-                    CONF_VESSEL_WATCHLIST, CONF_ZONE_RADIUS, DOMAIN)
+                    CONF_MAP_TIMEOUT_MINUTES, CONF_MAX_MAP_ENTITIES,
+                    CONF_SEARXNG_PASSWORD, CONF_SEARXNG_URL,
+                    CONF_SEARXNG_USERNAME, CONF_VESSEL_WATCHLIST,
+                    CONF_ZONE_RADIUS, DOMAIN)
 
 _MAX_AREAS = 10
 
@@ -57,6 +58,9 @@ def _common_schema(
         vol.Optional(CONF_VESSEL_WATCHLIST, default=""): TextSelector(),
         vol.Required(CONF_MAP_TIMEOUT_MINUTES, default=30): NumberSelector(
             NumberSelectorConfig(min=5, max=1440, step=1)
+        ),
+        vol.Required(CONF_MAX_MAP_ENTITIES, default=10): NumberSelector(
+            NumberSelectorConfig(min=0, max=50, step=1, mode="slider")
         ),
         vol.Optional(CONF_SEARXNG_URL, default=""): TextSelector(),
         vol.Optional(CONF_SEARXNG_USERNAME): TextSelector(),

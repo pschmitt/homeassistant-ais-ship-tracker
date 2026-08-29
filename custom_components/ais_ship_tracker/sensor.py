@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
 from .entity import AisShipTrackerEntity
 from .tracker import AisTrackerCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -20,7 +25,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the persistent and optional map sensors."""
-    del hass
     tracker = entry.runtime_data.tracker
     entities: list[SensorEntity] = [
         LastPassingShipSensor(entry),
@@ -32,12 +36,24 @@ async def async_setup_entry(
             known[mmsi] = AisMapShipSensor(entry, tracker, mmsi, ship)
         entities.extend(known.values())
     async_add_entities(entities)
+    entry.async_create_background_task(
+        hass,
+        _async_remove_orphaned_map_entities(hass, entry, set(known)),
+        "ais_ship_tracker_cleanup_map_entities",
+    )
 
     @callback
     def tracker_updated() -> None:
-        """Add newly observed vessels and refresh existing sensors."""
+        """Add newly observed vessels and remove expired sensors."""
         if not tracker.map_entities_enabled:
             return
+        for mmsi in set(known) - set(tracker.ships):
+            entity = known.pop(mmsi)
+            entry.async_create_background_task(
+                hass,
+                _async_remove_map_entity(hass, entity),
+                "ais_ship_tracker_remove_map_entity",
+            )
         new_entities = []
         for mmsi, ship in tracker.ships.items():
             if mmsi not in known:
@@ -47,6 +63,40 @@ async def async_setup_entry(
             async_add_entities(new_entities)
 
     entry.async_on_unload(tracker.async_add_listener(tracker_updated))
+
+
+async def _async_remove_orphaned_map_entities(
+    hass: HomeAssistant,
+    entry: AisShipTrackerConfigEntry,
+    active_mmsis: set[str],
+) -> None:
+    """Remove dynamic vessel entities left by a previous runtime."""
+    await asyncio.sleep(0)
+    registry = er.async_get(hass)
+    removed = 0
+    for registry_entry in list(
+        registry.entities.get_entries_for_config_entry_id(entry.entry_id)
+    ):
+        if (
+            registry_entry.platform == entry.domain
+            and (registry_entry.unique_id or "").startswith("ais_ship_")
+            and (registry_entry.unique_id or "").removeprefix("ais_ship_")
+            not in active_mmsis
+        ):
+            registry.async_remove(registry_entry.entity_id)
+            removed += 1
+    if removed:
+        _LOGGER.info("Removed %d stale AIS vessel entities", removed)
+
+
+async def _async_remove_map_entity(
+    hass: HomeAssistant, entity: "AisMapShipSensor"
+) -> None:
+    """Remove an expired vessel entity from state and the entity registry."""
+    entity_id = entity.entity_id
+    await entity.async_remove(force_remove=True)
+    if entity_id:
+        er.async_get(hass).async_remove(entity_id)
 
 
 class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
@@ -159,11 +209,16 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return vessel position and AIS details."""
-        return {key: value for key, value in self._ship.items() if not key.startswith("_")}
+        return {
+            key: value for key, value in self._ship.items() if not key.startswith("_")
+        }
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""
         await super().async_added_to_hass()
+        if self.mmsi not in self.coordinator.ships:
+            await _async_remove_map_entity(self.hass, self)
+            return
         self.async_on_remove(self.coordinator.async_add_listener(self._updated))
 
     @callback

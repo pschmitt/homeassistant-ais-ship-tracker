@@ -10,6 +10,7 @@
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
           "map_timeout_minutes": "Map vessel timeout (minutes)",
+          "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
           "searxng_password": "SearXNG password",
@@ -53,6 +54,7 @@
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
           "map_timeout_minutes": "Map vessel timeout (minutes)",
+          "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
           "searxng_username": "SearXNG username",
           "searxng_password": "SearXNG password (leave blank to keep it)",
@@ -116,6 +118,7 @@
               "include_class_b": "Include Class B transponders",
               "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
               "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
               "searxng_password": "SearXNG password"
@@ -149,6 +152,7 @@
               "include_class_b": "Include Class B transponders",
               "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
               "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
               "searxng_password": "SearXNG password"
@@ -182,6 +186,7 @@
               "include_class_b": "Include Class B transponders",
               "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
               "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
               "searxng_password": "SearXNG password"
@@ -215,6 +220,7 @@
               "include_class_b": "Include Class B transponders",
               "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
               "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
               "searxng_password": "SearXNG password"
@@ -248,6 +254,7 @@
               "include_class_b": "Include Class B transponders",
               "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
               "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
               "searxng_username": "SearXNG username",
               "searxng_password": "SearXNG password"
