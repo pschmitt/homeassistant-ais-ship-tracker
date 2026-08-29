@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_change
 
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
@@ -33,12 +34,31 @@ async def async_setup_entry(
         LastPassingShipSensor(entry, area, index)
         for index, area in enumerate(configured_areas(tracker.settings), 1)
     )
+    count_sensors = [
+        ShipCountSensor(entry, area, index, period="day")
+        for index, area in enumerate(configured_areas(tracker.settings), 1)
+    ]
+    count_sensors.extend(
+        ShipCountSensor(entry, area, index, period="hour")
+        for index, area in enumerate(configured_areas(tracker.settings), 1)
+    )
+    entities.extend(count_sensors)
     known: dict[str, AisMapShipSensor] = {}
     if tracker.map_entities_enabled:
         for mmsi, ship in tracker.ships.items():
             known[mmsi] = AisMapShipSensor(entry, tracker, mmsi, ship)
         entities.extend(known.values())
     async_add_entities(entities)
+
+    @callback
+    def hour_changed(_now: Any) -> None:
+        """Refresh the counters when a new clock hour begins."""
+        for entity in count_sensors:
+            entity.async_write_ha_state()
+
+    entry.async_on_unload(
+        async_track_time_change(hass, hour_changed, minute=0, second=0)
+    )
     entry.async_create_background_task(
         hass,
         _async_remove_orphaned_map_entities(hass, entry, set(known)),
@@ -171,6 +191,49 @@ class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return connection diagnostics."""
         return {"error": self.coordinator.connection_error}
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to tracker updates."""
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self.coordinator.async_add_listener(self.async_write_ha_state)
+        )
+
+
+class ShipCountSensor(AisShipTrackerEntity, SensorEntity):
+    """Count distinct vessels detected during a local calendar period."""
+
+    _attr_has_entity_name = False
+    _attr_icon = "mdi:ferry"
+    _attr_native_unit_of_measurement = "ships"
+
+    def __init__(
+        self,
+        entry: AisShipTrackerConfigEntry,
+        area: dict[str, Any],
+        index: int,
+        *,
+        period: str,
+    ) -> None:
+        """Initialize a ship counter."""
+        super().__init__(entry)
+        self.coordinator = entry.runtime_data.tracker
+        self.area_id = area_id(area, index)
+        self.period = period
+        suffix = "ships_today" if period == "day" else "ships_this_hour"
+        self._attr_translation_key = suffix
+        self._attr_name = (
+            f"{area_name(area, index)} Ships Today"
+            if period == "day"
+            else f"{area_name(area, index)} Ships This Hour"
+        )
+        self._attr_unique_id = f"{suffix}_{self.area_id}"
+        self._attr_suggested_object_id = f"{area_slug(area, index)}_{suffix}"
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of distinct vessels in the current period."""
+        return self.coordinator.count_ship_sightings(self.area_id, period=self.period)
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""

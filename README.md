@@ -8,6 +8,8 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 ## Features
 
 - Persistent `Last Passing Ship` state, restored after Home Assistant restarts.
+- Per-area counters for distinct ships detected today and during the current
+  clock hour.
 - Connection status and an event fired when a new vessel becomes the last seen vessel.
 - A bounded set of temporary per-vessel sensors for map cards; expired vessel
   entities are removed from Home Assistant automatically.
@@ -87,6 +89,9 @@ The integration creates these entities for every configured tracking area:
 
 - `sensor.ais_ship_tracker_<area>_last_passing_ship` — vessel name, unavailable
   until the first detection or restored state, with AIS data in its attributes.
+- `sensor.ais_ship_tracker_<area>_ships_today` and
+  `sensor.ais_ship_tracker_<area>_ships_this_hour` — distinct MMSI counts for
+  the local calendar day and current clock hour.
 - `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
   each newly detected MMSI in that area.
 - When SearXNG is configured,

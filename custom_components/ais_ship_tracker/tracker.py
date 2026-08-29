@@ -14,6 +14,7 @@ from aiohttp import WSMsgType
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
 from .areas import area_bounding_box, area_id, area_zone_location, configured_areas
 from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
@@ -93,6 +94,7 @@ class AisTrackerCoordinator:
         self.settings = settings
         self.entry_id = entry_id
         self.last_ships: dict[str, dict[str, Any]] = {}
+        self.ship_sightings: dict[str, list[dict[str, str]]] = {}
         self.ships: dict[str, dict[str, Any]] = {}
         self._static_ship_data: dict[str, dict[str, Any]] = {}
         self.connection_status = "Disconnected"
@@ -156,6 +158,21 @@ class AisTrackerCoordinator:
                 for area_key, ship in stored["last_ships"].items()
                 if isinstance(ship, dict) and ship.get("mmsi")
             }
+            if isinstance(stored.get("ship_sightings"), dict):
+                self.ship_sightings = {
+                    str(area_key): [
+                        {
+                            "mmsi": str(sighting.get("mmsi")),
+                            "spotted_time": str(sighting.get("spotted_time")),
+                        }
+                        for sighting in sightings
+                        if isinstance(sighting, dict)
+                        and sighting.get("mmsi")
+                        and sighting.get("spotted_time")
+                    ]
+                    for area_key, sightings in stored["ship_sightings"].items()
+                    if isinstance(sightings, list)
+                }
         elif isinstance(stored, dict) and stored.get("mmsi"):
             # Migrate the original single-area store format to area_1.
             areas = configured_areas(self.settings)
@@ -166,6 +183,7 @@ class AisTrackerCoordinator:
             self._seen_mmsis_by_area[area_key] = {str(ship["mmsi"])}
         if migrated:
             await self._store.async_save(self._stored_data())
+        self._purge_old_sightings()
         self._task = self.hass.async_create_task(
             self._run(), name=f"{DOMAIN}_{self.entry_id}"
         )
@@ -328,8 +346,12 @@ class AisTrackerCoordinator:
                 continue
             seen_mmsis.add(mmsi)
             self.last_ships[tracking_area_id] = public_ship
+            self.ship_sightings.setdefault(tracking_area_id, []).append(
+                {"mmsi": mmsi, "spotted_time": public_ship["spotted_time"]}
+            )
             stored = True
         if stored:
+            self._purge_old_sightings()
             self.hass.async_create_task(self._store.async_save(self._stored_data()))
         self._notify()
 
@@ -357,9 +379,53 @@ class AisTrackerCoordinator:
                 matching_areas.append(area_id(area, index))
         return matching_areas
 
-    def _stored_data(self) -> dict[str, dict[str, dict[str, Any]]]:
+    def _stored_data(self) -> dict[str, Any]:
         """Return the persisted per-area last-vessel payload."""
-        return {"last_ships": self.last_ships}
+        return {
+            "last_ships": self.last_ships,
+            "ship_sightings": self.ship_sightings,
+        }
+
+    def count_ship_sightings(self, area_key: str, *, period: str) -> int:
+        """Count distinct MMSIs recorded in the current local time period."""
+        now = dt_util.now()
+        if period == "day":
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start = now.replace(minute=0, second=0, microsecond=0)
+
+        mmsis: set[str] = set()
+        for sighting in self.ship_sightings.get(area_key, []):
+            try:
+                spotted = datetime.fromisoformat(sighting["spotted_time"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if spotted.tzinfo is None:
+                spotted = spotted.replace(tzinfo=UTC)
+            if start <= dt_util.as_local(spotted) <= now:
+                mmsis.add(str(sighting["mmsi"]))
+        return len(mmsis)
+
+    def _purge_old_sightings(self) -> None:
+        """Keep enough history for current and previous local-day counters."""
+        cutoff = datetime.now(UTC) - timedelta(days=2)
+        for area_key, sightings in self.ship_sightings.items():
+            self.ship_sightings[area_key] = [
+                sighting
+                for sighting in sightings
+                if self._sighting_time(sighting) >= cutoff
+            ]
+
+    @staticmethod
+    def _sighting_time(sighting: dict[str, str]) -> datetime:
+        """Return a sighting timestamp, treating malformed values as expired."""
+        try:
+            spotted = datetime.fromisoformat(sighting["spotted_time"])
+        except (KeyError, TypeError, ValueError):
+            return datetime.min.replace(tzinfo=UTC)
+        if spotted.tzinfo is None:
+            spotted = spotted.replace(tzinfo=UTC)
+        return spotted.astimezone(UTC)
 
     def _trim_map_ships(self) -> None:
         """Keep only the most recently reported vessels for map entities."""

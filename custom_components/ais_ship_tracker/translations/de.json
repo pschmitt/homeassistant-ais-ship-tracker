@@ -104,7 +104,9 @@
   "entity": {
     "sensor": {
       "last_passing_ship": {"name": "Zuletzt vorbeigefahrenes Schiff"},
-      "connection_status": {"name": "AIS-Verbindungsstatus"}
+      "connection_status": {"name": "AIS-Verbindungsstatus"},
+      "ships_today": {"name": "Schiffe heute"},
+      "ships_this_hour": {"name": "Schiffe in dieser Stunde"}
     },
     "event": {
       "last_ship_updated": {"name": "Letzte Schiffsaktualisierung"}
