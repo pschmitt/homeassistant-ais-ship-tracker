@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import html
 import logging
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlencode, urljoin
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
+from bs4 import BeautifulSoup
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
@@ -25,34 +25,67 @@ _LOGGER = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from .tracker import AisTrackerCoordinator
 
-_MARINE_TRAFFIC_PROXY = re.compile(
-    r"/image_proxy\?url=https%3A%2F%2Fwww\.marinetraffic\.com%2FgetAssetDefaultPhoto"
-    r"%2F%3Fphoto_size%3D800%26asset_id%3D[0-9]+%26asset_type_id%3D0&h=[0-9a-f]+"
-)
-_VESSEL_FINDER_PROXY = re.compile(
-    r"/image_proxy\?url=https%3A%2F%2Fstatic\.vesselfinder\.net%2Fship-photo%2F[^&\"]+"
-    r"&h=[0-9a-f]+"
-)
-_VESSEL_FINDER_DETAILS_PHOTO = re.compile(
-    r"<img\b[^>]*\bsrc=[\"']([^\"']+)[\"'][^>]*"
-    r"\bclass=[\"'][^\"']*\bmain-photo\b[^\"']*[\"']",
-    re.IGNORECASE,
-)
-_VESSEL_FINDER_OG_IMAGE = re.compile(
-    r"<meta\b[^>]*\bproperty=[\"']og:image[\"'][^>]*\bcontent=[\"']"
-    r"([^\"']+)[\"']",
-    re.IGNORECASE,
-)
 _VESSEL_FINDER_NO_PHOTO = re.compile(
     r"(?:cool-ship|no[-_ ]photo|placeholder)",
     re.IGNORECASE,
 )
-_VESSEL_FINDER_NO_PHOTO_ALT = re.compile(
-    r"<img\b[^>]*\balt=[\"']no photo[\"']",
-    re.IGNORECASE,
-)
 _RETRY_INTERVAL = timedelta(minutes=5)
 _PHOTO_STORE_VERSION = 1
+
+
+def _search_photo_candidate(
+    search_html: str, searxng_url: str
+) -> tuple[str, str] | None:
+    """Find a supported SearXNG image proxy URL in the result page."""
+    soup = BeautifulSoup(search_html, "html.parser")
+    for tag in soup.find_all(["a", "img"]):
+        for attribute in ("src", "data-src", "href", "data-url"):
+            value = tag.get(attribute)
+            if not isinstance(value, str) or "/image_proxy" not in value:
+                continue
+            proxy_url = urljoin(f"{searxng_url}/", value)
+            image_url = parse_qs(urlsplit(proxy_url).query).get("url", [""])[0]
+            image_url = image_url.lower()
+            if "marinetraffic.com/getassetdefaultphoto" in image_url:
+                return proxy_url, "MarineTraffic"
+            if "static.vesselfinder.net/ship-photo/" in image_url:
+                return proxy_url, "VesselFinder"
+    return None
+
+
+def _tag_photo_value(tag: Any) -> str | None:
+    """Return the first usable image URL from a parsed HTML tag."""
+    for attribute in ("src", "data-src", "data-original", "content"):
+        value = tag.get(attribute)
+        if isinstance(value, str) and value:
+            return value
+    srcset = tag.get("srcset") or tag.get("data-srcset")
+    if isinstance(srcset, str) and srcset:
+        return srcset.split(",", 1)[0].strip().split(" ", 1)[0]
+    return None
+
+
+def _vessel_finder_photo_candidate(
+    details_html: str, details_url: str
+) -> tuple[str, bool] | None:
+    """Extract the main VesselFinder photo and identify placeholders."""
+    soup = BeautifulSoup(details_html, "html.parser")
+    tags = list(soup.select("img.main-photo"))
+    tags.extend(soup.select('meta[property="og:image"]'))
+    for tag in tags:
+        value = _tag_photo_value(tag)
+        if not value:
+            continue
+        photo_url = urljoin(details_url, value)
+        alt_text = " ".join(
+            str(tag.get(attribute) or "") for attribute in ("alt", "title")
+        )
+        is_placeholder = bool(
+            _VESSEL_FINDER_NO_PHOTO.search(photo_url)
+            or _VESSEL_FINDER_NO_PHOTO.search(alt_text)
+        )
+        return photo_url, not is_placeholder
+    return None
 
 
 class ShipPhotoCoordinator:
@@ -301,7 +334,12 @@ class ShipPhotoCoordinator:
             self._error = ""
             query = " ".join(part for part in (vessel_name, mmsi) if part)
             search_url = f"{self.searxng_url}/search?{urlencode({'q': query, 'categories': 'images'})}"
-            proxy_path = None
+            photo_url: str | None = None
+            provider = ""
+            photo_cacheable = True
+            photo_headers = {"User-Agent": "Home Assistant AIS ship photo camera"}
+            photo_auth = self._auth
+            photo_via_searxng = False
 
             try:
                 async with self.session.get(
@@ -314,56 +352,66 @@ class ShipPhotoCoordinator:
                     timeout=15,
                 ) as response:
                     response.raise_for_status()
-                    search_html = html.unescape(await response.text())
+                    search_html = await response.text()
                 self._set_service_issue(None)
+                search_candidate = _search_photo_candidate(
+                    search_html, self.searxng_url
+                )
+                if search_candidate:
+                    photo_url, provider = search_candidate
+                    photo_via_searxng = True
+            except ClientResponseError as err:
+                if err.status in (401, 403):
+                    self._set_service_issue(ISSUE_SEARXNG_AUTHENTICATION)
+                elif err.status in (404, 429):
+                    self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
+                _LOGGER.warning(
+                    "AIS Ship Tracker SearXNG lookup failed for %s: HTTP %s; "
+                    "trying VesselFinder fallback",
+                    mmsi,
+                    err.status,
+                )
+            except (ClientError, asyncio.TimeoutError) as err:
+                _LOGGER.warning(
+                    "AIS Ship Tracker SearXNG lookup failed for %s: %s; "
+                    "trying VesselFinder fallback",
+                    mmsi,
+                    err,
+                )
 
-                proxy_path = _MARINE_TRAFFIC_PROXY.search(search_html)
-                provider = "MarineTraffic"
-                if proxy_path is None:
-                    proxy_path = _VESSEL_FINDER_PROXY.search(search_html)
-                    provider = "VesselFinder"
-                photo_url: str | None = None
-                photo_cacheable = True
-                photo_headers = {"User-Agent": "Home Assistant AIS ship photo camera"}
-                photo_auth = self._auth
-                if proxy_path is not None:
-                    photo_url = urljoin(f"{self.searxng_url}/", proxy_path.group(0))
-                else:
-                    details_url = vessel_finder_url(mmsi)
-                    if details_url:
-                        try:
-                            async with self.session.get(
-                                details_url,
-                                headers=photo_headers,
-                                timeout=15,
-                            ) as response:
-                                response.raise_for_status()
-                                details_html = html.unescape(await response.text())
-                            photo_match = _VESSEL_FINDER_DETAILS_PHOTO.search(
-                                details_html
-                            ) or _VESSEL_FINDER_OG_IMAGE.search(details_html)
-                            if photo_match:
-                                photo_url = urljoin(details_url, photo_match.group(1))
-                                photo_cacheable = not (
-                                    _VESSEL_FINDER_NO_PHOTO.search(photo_url)
-                                    or _VESSEL_FINDER_NO_PHOTO_ALT.search(details_html)
-                                )
-                                provider = "VesselFinder"
-                                photo_headers["Referer"] = details_url
-                                photo_auth = None
-                        except (ClientError, asyncio.TimeoutError) as err:
-                            _LOGGER.debug(
-                                "Direct VesselFinder photo lookup failed for %s: %s",
-                                mmsi,
-                                err,
-                            )
-                if photo_url is None:
-                    self._set_error("No MarineTraffic or VesselFinder photo found")
-                    _LOGGER.debug(
-                        "No photo result found for %s (%s)", vessel_name, mmsi
-                    )
-                    return
+            if photo_url is None:
+                details_url = vessel_finder_url(mmsi)
+                if details_url:
+                    try:
+                        async with self.session.get(
+                            details_url,
+                            headers=photo_headers,
+                            timeout=15,
+                        ) as response:
+                            response.raise_for_status()
+                            details_html = await response.text()
+                        details_candidate = _vessel_finder_photo_candidate(
+                            details_html, details_url
+                        )
+                        if details_candidate:
+                            photo_url, photo_cacheable = details_candidate
+                            provider = "VesselFinder"
+                            photo_headers["Referer"] = details_url
+                            photo_auth = None
+                    except (ClientError, asyncio.TimeoutError) as err:
+                        _LOGGER.debug(
+                            "Direct VesselFinder photo lookup failed for %s: %s",
+                            mmsi,
+                            err,
+                        )
+            if photo_url is None:
+                self._set_error("No MarineTraffic or VesselFinder photo found")
+                _LOGGER.debug(
+                    "No photo result found for %s (%s)", vessel_name, mmsi
+                )
+                return
 
+            try:
                 async with self.session.get(
                     photo_url,
                     headers=photo_headers,
@@ -374,29 +422,29 @@ class ShipPhotoCoordinator:
                     image = await response.read()
                     content_type = response.headers.get("Content-Type", "image/jpeg")
 
-                if not image:
-                    self._set_error("Photo proxy returned an empty image")
-                    return
-                self._image = image
-                self._content_type = content_type.split(";", 1)[0]
-                self._provider = provider
-                self._photo_url = photo_url
-                self._last_updated = datetime.now(UTC)
-                self._photo_cacheable = photo_cacheable
-                if self._cache_photos and photo_cacheable:
-                    self._cached_photos[mmsi] = self._current_photo_data()
-                    await self._store.async_save(self._stored_data())
-                _LOGGER.debug(
-                    "Updated %s photo for %s (%s) via %s",
-                    self.tracker.entry_id,
-                    vessel_name,
-                    mmsi,
-                    provider,
-                )
+                    if not image:
+                        self._set_error("Photo proxy returned an empty image")
+                        return
+                    self._image = image
+                    self._content_type = content_type.split(";", 1)[0]
+                    self._provider = provider
+                    self._photo_url = photo_url
+                    self._last_updated = datetime.now(UTC)
+                    self._photo_cacheable = photo_cacheable
+                    if self._cache_photos and photo_cacheable:
+                        self._cached_photos[mmsi] = self._current_photo_data()
+                        await self._store.async_save(self._stored_data())
+                    _LOGGER.debug(
+                        "Updated %s photo for %s (%s) via %s",
+                        self.tracker.entry_id,
+                        vessel_name,
+                        mmsi,
+                        provider,
+                    )
             except ClientResponseError as err:
-                if proxy_path is not None and err.status in (401, 403):
+                if photo_via_searxng and err.status in (401, 403):
                     self._set_service_issue(ISSUE_SEARXNG_AUTHENTICATION)
-                elif proxy_path is not None and err.status == 404:
+                elif photo_via_searxng and err.status == 404:
                     self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
                 self._set_error(f"Photo lookup failed with HTTP {err.status}")
                 _LOGGER.warning(

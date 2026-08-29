@@ -10,6 +10,6 @@
   "loggers": [
     "custom_components.ais_ship_tracker"
   ],
-  "requirements": [],
-  "version": "2.8.10"
+  "requirements": ["beautifulsoup4>=4.12.3"],
+  "version": "2.8.11"
 }

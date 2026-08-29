@@ -8,8 +8,8 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 ## Features
 
 - Persistent `Last Passing Ship` state, restored after Home Assistant restarts.
-- Per-area counters for distinct ships detected today and during the current
-  clock hour.
+- Per-area counters for distinct ships detected today and during the rolling
+  last 3,600 seconds.
 - Connection status and an event fired when a new vessel becomes the last seen vessel.
 - A bounded set of temporary per-vessel sensors for map cards; expired vessel
   entities are removed from Home Assistant automatically.
@@ -71,7 +71,9 @@ tracking area is removed.
 
 SearXNG is optional. If no URL is configured, no photo camera is created. If
 configured, the integration searches for the vessel name and MMSI and serves
-the selected image through Home Assistant's camera entity. If SearXNG returns
+the selected image through Home Assistant's camera entity. Search results and
+VesselFinder pages are parsed with Beautiful Soup rather than relying on fixed
+HTML attribute ordering. If SearXNG is unavailable, rate-limited, or returns
 no supported image result, it makes a best-effort fallback request to the
 public VesselFinder details page and uses its main vessel photo when available.
 Local photo caching is optional and disabled by default. When enabled, the
