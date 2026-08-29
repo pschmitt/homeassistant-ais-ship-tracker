@@ -89,13 +89,33 @@ class ShipPhotoCoordinator:
         return self._vessel_name
 
     @property
-    def attributes(self) -> dict[str, str | None]:
-        """Return diagnostic attributes for the camera."""
+    def attributes(self) -> dict[str, Any]:
+        """Return the current vessel and photo lookup details for the camera."""
+        ship = self.tracker.last_ships.get(self.area_id, {})
+        ship_attributes = {
+            key: value
+            for key, value in ship.items()
+            if not key.startswith("_") and value is not None
+        }
+        vessel_name = str(
+            ship_attributes.get("ship_name") or self._vessel_name or ""
+        )
+        mmsi = str(ship_attributes.get("mmsi") or self._mmsi or "")
+        search_query = " ".join(part for part in (vessel_name, mmsi) if part)
+        search_url = (
+            f"{self.searxng_url}/search?"
+            f"{urlencode({'q': search_query, 'categories': 'images'})}"
+            if self.searxng_url and search_query
+            else None
+        )
         return {
-            "vessel_name": self._vessel_name or None,
-            "mmsi": self._mmsi or None,
+            **ship_attributes,
+            "vessel_name": vessel_name or None,
+            "mmsi": mmsi or None,
             "provider": self._provider or None,
             "photo_url": self._photo_url or None,
+            "search_query": search_query or None,
+            "search_url": search_url,
             "last_updated": self._last_updated.isoformat()
             if self._last_updated
             else None,

@@ -63,8 +63,8 @@ class ShipPhotoCamera(AisShipTrackerEntity, Camera):
 
     @property
     def available(self) -> bool:
-        """Return whether a photo is currently cached."""
-        return self.coordinator.available
+        """Return whether the configured photo lookup camera is available."""
+        return True
 
     @property
     def extra_state_attributes(self):

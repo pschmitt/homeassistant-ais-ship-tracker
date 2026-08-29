@@ -84,10 +84,12 @@ the MMSI. When a vessel expires from the map
 timeout or is evicted by the limit, its entity and entity-registry entry are
 removed; it will be recreated if it is observed again.
 
-Photo cameras include the provider, source URL, vessel name, and MMSI as
-attributes. The dashboard can link to the vessel's [MarineTraffic
-page](https://www.marinetraffic.com/). For example, the default `Home` area
-uses `sensor.ais_ship_tracker_home_last_passing_ship`.
+Photo cameras include the current vessel's AIS attributes, the photo provider
+and source URL, the generated `search_query` and `search_url`, and any lookup
+error as camera attributes. This makes it possible to verify exactly which
+vessel was searched for. The dashboard can link to the vessel's
+[MarineTraffic page](https://www.marinetraffic.com/). For example, the default
+`Home` area uses `sensor.ais_ship_tracker_home_last_passing_ship`.
 
 ## License and branding
 
