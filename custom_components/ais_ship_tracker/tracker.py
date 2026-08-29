@@ -7,6 +7,7 @@ import json
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from math import cos, radians, sqrt
 from typing import Any
 
 from aiohttp import WSMsgType
@@ -14,7 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
-from .areas import area_bounding_box, configured_areas
+from .areas import area_bounding_box, area_id, area_zone_location, configured_areas
 from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
                     CONF_INCLUDE_CLASS_B, CONF_MAP_TIMEOUT_MINUTES,
                     CONF_MAX_MAP_ENTITIES, CONF_VESSEL_WATCHLIST, DOMAIN,
@@ -22,7 +23,7 @@ from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
-_STORE_VERSION = 1
+_STORE_VERSION = 2
 _RECONNECT_DELAY = 10
 
 _NAV_STATUS = {
@@ -89,18 +90,26 @@ class AisTrackerCoordinator:
         self.session = session
         self.settings = settings
         self.entry_id = entry_id
-        self.last_ship: dict[str, Any] | None = None
+        self.last_ships: dict[str, dict[str, Any]] = {}
         self.ships: dict[str, dict[str, Any]] = {}
         self._static_ship_data: dict[str, dict[str, Any]] = {}
         self.connection_status = "Disconnected"
         self.connection_error: str | None = None
-        self._seen_mmsis: set[str] = set()
+        self._seen_mmsis_by_area: dict[str, set[str]] = {}
         self._listeners: list[Callable[[], None]] = []
         self._store = Store(
             hass, _STORE_VERSION, f"{DOMAIN}.last_passing_ship_{entry_id}"
         )
         self._task: asyncio.Task[None] | None = None
         self._stopping = False
+
+    @property
+    def last_ship(self) -> dict[str, Any] | None:
+        """Return the first area's last ship for backwards compatibility."""
+        areas = configured_areas(self.settings)
+        if not areas:
+            return None
+        return self.last_ships.get(area_id(areas[0], 1))
 
     @property
     def map_entities_enabled(self) -> bool:
@@ -138,9 +147,23 @@ class AisTrackerCoordinator:
         """Restore state and start the AISStream task."""
         self._stopping = False
         stored = await self._store.async_load()
-        if isinstance(stored, dict) and stored.get("mmsi"):
-            self.last_ship = stored
-            self._seen_mmsis.add(str(stored["mmsi"]))
+        migrated = False
+        if isinstance(stored, dict) and isinstance(stored.get("last_ships"), dict):
+            self.last_ships = {
+                str(area_key): dict(ship)
+                for area_key, ship in stored["last_ships"].items()
+                if isinstance(ship, dict) and ship.get("mmsi")
+            }
+        elif isinstance(stored, dict) and stored.get("mmsi"):
+            # Migrate the original single-area store format to area_1.
+            areas = configured_areas(self.settings)
+            if areas:
+                self.last_ships[area_id(areas[0], 1)] = dict(stored)
+                migrated = True
+        for area_key, ship in self.last_ships.items():
+            self._seen_mmsis_by_area[area_key] = {str(ship["mmsi"])}
+        if migrated:
+            await self._store.async_save(self._stored_data())
         self._task = self.hass.async_create_task(
             self._run(), name=f"{DOMAIN}_{self.entry_id}"
         )
@@ -293,11 +316,48 @@ class AisTrackerCoordinator:
         ship["_last_seen"] = now
         self.ships[mmsi] = ship
         self._trim_map_ships()
-        if mmsi not in self._seen_mmsis:
-            self._seen_mmsis.add(mmsi)
-            self.last_ship = self._public_ship(ship)
-            self.hass.async_create_task(self._store.async_save(self.last_ship))
+        stored = False
+        public_ship = self._public_ship(ship)
+        for tracking_area_id in self._area_ids_for_position(
+            report.get("Latitude"), report.get("Longitude")
+        ):
+            seen_mmsis = self._seen_mmsis_by_area.setdefault(tracking_area_id, set())
+            if mmsi in seen_mmsis:
+                continue
+            seen_mmsis.add(mmsi)
+            self.last_ships[tracking_area_id] = public_ship
+            stored = True
+        if stored:
+            self.hass.async_create_task(self._store.async_save(self._stored_data()))
         self._notify()
+
+    def _area_ids_for_position(self, latitude: Any, longitude: Any) -> list[str]:
+        """Return tracking areas containing a vessel position."""
+        try:
+            vessel_latitude = float(latitude)
+            vessel_longitude = float(longitude)
+        except (TypeError, ValueError):
+            return []
+
+        matching_areas = []
+        for index, area in enumerate(configured_areas(self.settings), 1):
+            location = area_zone_location(self.hass, area)
+            if location is None:
+                continue
+            area_latitude, area_longitude, radius = location
+            latitude_distance = (vessel_latitude - area_latitude) * 111_320
+            longitude_distance = (
+                (vessel_longitude - area_longitude)
+                * 111_320
+                * cos(radians(area_latitude))
+            )
+            if sqrt(latitude_distance**2 + longitude_distance**2) <= radius:
+                matching_areas.append(area_id(area, index))
+        return matching_areas
+
+    def _stored_data(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """Return the persisted per-area last-vessel payload."""
+        return {"last_ships": self.last_ships}
 
     def _trim_map_ships(self) -> None:
         """Keep only the most recently reported vessels for map entities."""
@@ -349,15 +409,20 @@ class AisTrackerCoordinator:
                 }
             )
             self._notify()
-        if self.last_ship and self.last_ship.get("mmsi") == mmsi:
-            self.last_ship.update(
+        updated = False
+        for last_ship in self.last_ships.values():
+            if last_ship.get("mmsi") != mmsi:
+                continue
+            last_ship.update(
                 {
                     key: value
                     for key, value in static_values.items()
                     if value is not None
                 }
             )
-            self.hass.async_create_task(self._store.async_save(self.last_ship))
+            updated = True
+        if updated:
+            self.hass.async_create_task(self._store.async_save(self._stored_data()))
             self._notify()
 
     def _purge_old_ships(self) -> None:

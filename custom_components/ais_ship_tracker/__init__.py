@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
 
-from .areas import configured_areas
+from .areas import area_id, area_name, configured_areas
 from .const import (
     CONF_AREAS,
     CONF_LATITUDE_NORTH,
@@ -38,7 +38,7 @@ class AisShipTrackerRuntime:
     """Runtime objects shared by the integration platforms."""
 
     tracker: AisTrackerCoordinator
-    photo: ShipPhotoCoordinator | None
+    photos: dict[str, ShipPhotoCoordinator]
 
 
 type AisShipTrackerConfigEntry = ConfigEntry[AisShipTrackerRuntime]
@@ -127,20 +127,23 @@ async def async_setup_entry(
         settings,
         entry.entry_id,
     )
-    photo = (
-        ShipPhotoCoordinator(
-            hass,
-            async_get_clientsession(hass),
-            settings[CONF_SEARXNG_URL],
-            tracker,
-            settings.get(CONF_SEARXNG_USERNAME),
-            settings.get(CONF_SEARXNG_PASSWORD),
-            entry.entry_id,
-        )
-        if settings.get(CONF_SEARXNG_URL)
-        else None
-    )
-    entry.runtime_data = AisShipTrackerRuntime(tracker=tracker, photo=photo)
+    photos: dict[str, ShipPhotoCoordinator] = {}
+    if settings.get(CONF_SEARXNG_URL):
+        photos = {
+            area_id(area, index): ShipPhotoCoordinator(
+                hass,
+                async_get_clientsession(hass),
+                settings[CONF_SEARXNG_URL],
+                tracker,
+                settings.get(CONF_SEARXNG_USERNAME),
+                settings.get(CONF_SEARXNG_PASSWORD),
+                entry.entry_id,
+                area_id(area, index),
+                area_name(area, index),
+            )
+            for index, area in enumerate(configured_areas(settings), 1)
+        }
+    entry.runtime_data = AisShipTrackerRuntime(tracker=tracker, photos=photos)
     await tracker.async_start()
 
     source_zones = {
@@ -170,7 +173,7 @@ async def async_setup_entry(
         )
 
     platforms = ["sensor", "event"]
-    if photo is not None:
+    if photos:
         platforms.append("camera")
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
 
@@ -178,20 +181,22 @@ async def async_setup_entry(
     def tracker_updated() -> None:
         """Refresh the photo only when a new vessel becomes last seen."""
         _update_config_issues(hass, entry, settings)
-        if photo is None:
+        if not photos:
             return
-        mmsi = str(tracker.last_ship.get("mmsi", "")) if tracker.last_ship else ""
-        if mmsi == tracker_updated.last_mmsi:
-            return
-        tracker_updated.last_mmsi = mmsi
-        entry.async_create_background_task(
-            hass, photo.async_refresh(force=True), "ais_ship_tracker_refresh"
-        )
+        for tracking_area_id, photo in photos.items():
+            last_ship = tracker.last_ships.get(tracking_area_id)
+            mmsi = str(last_ship.get("mmsi", "")) if last_ship else ""
+            if mmsi == tracker_updated.last_mmsis.get(tracking_area_id):
+                continue
+            tracker_updated.last_mmsis[tracking_area_id] = mmsi
+            entry.async_create_background_task(
+                hass, photo.async_refresh(force=True), "ais_ship_tracker_refresh"
+            )
 
-    tracker_updated.last_mmsi = ""
+    tracker_updated.last_mmsis = {}
     entry.async_on_unload(tracker.async_add_listener(tracker_updated))
 
-    if photo is not None:
+    for photo in photos.values():
         entry.async_create_background_task(
             hass, photo.async_refresh(), "ais_ship_tracker_initial_refresh"
         )

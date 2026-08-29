@@ -6,12 +6,28 @@ from math import cos, radians
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.util import slugify
 
 from .const import (CONF_AREA_NAME, CONF_AREAS, CONF_LATITUDE_NORTH,
                     CONF_LATITUDE_SOUTH, CONF_LONGITUDE_EAST,
                     CONF_LONGITUDE_WEST, CONF_ZONE_ENTITY, CONF_ZONE_RADIUS)
 
 DEFAULT_AREA_NAME = "Home"
+
+
+def area_id(area: dict[str, Any], index: int | None = None) -> str:
+    """Return the stable identifier for a configured area."""
+    return str(area.get("id", f"area_{index or 1}"))
+
+
+def area_name(area: dict[str, Any], index: int | None = None) -> str:
+    """Return the display name for a configured area."""
+    return str(area.get("name", f"Area {index or 1}"))
+
+
+def area_slug(area: dict[str, Any], index: int | None = None) -> str:
+    """Return an entity-ID-friendly slug for a configured area."""
+    return slugify(area_name(area, index)) or area_id(area, index)
 
 
 def legacy_area(settings: dict[str, Any]) -> dict[str, Any]:

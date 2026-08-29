@@ -24,12 +24,15 @@ async def async_get_config_entry_diagnostics(
     del hass
     runtime = config_entry.runtime_data
     tracker = runtime.tracker
-    photo = runtime.photo
+    photos = runtime.photos
     settings = {**config_entry.data, **config_entry.options}
-    camera = {
-        "available": photo.available if photo else False,
-        "attributes": photo.attributes if photo else {},
-        "image_size": len(photo.image or b"") if photo else 0,
+    cameras = {
+        area_id: {
+            "available": photo.available,
+            "attributes": photo.attributes,
+            "image_size": len(photo.image or b""),
+        }
+        for area_id, photo in photos.items()
     }
     return {
         "entry": {
@@ -53,8 +56,8 @@ async def async_get_config_entry_diagnostics(
         "tracker": {
             "connection_status": tracker.connection_status,
             "connection_error": tracker.connection_error,
-            "last_ship": tracker.last_ship,
+            "last_ships": tracker.last_ships,
             "map_ship_count": len(tracker.ships),
         },
-        "camera": camera,
+        "cameras": cameras,
     }

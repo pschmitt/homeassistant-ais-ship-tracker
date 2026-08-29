@@ -55,7 +55,7 @@ integration.
 Class B transponders, an MMSI watchlist, and map entity retention can be
 changed later from the integration's options. Map entities are limited to ten
 active vessels by default; this limit is configurable, and setting it to zero
-keeps the shared last-ship entities without creating per-vessel sensors.
+keeps the per-area last-ship entities without creating per-vessel sensors.
 
 SearXNG is optional. If no URL is configured, no photo camera is created. If
 configured, the integration searches for the vessel name and MMSI and serves
@@ -63,16 +63,19 @@ the selected image through Home Assistant's camera entity.
 
 ## Entities
 
-The integration creates these entities unconditionally:
+The integration creates these entities for every configured tracking area:
 
-- `sensor.ais_ship_tracker_last_passing_ship` — vessel name, unavailable until
-  the first detection or restored state, with AIS data in its attributes.
+- `sensor.ais_ship_tracker_<area>_last_passing_ship` — vessel name, unavailable
+  until the first detection or restored state, with AIS data in its attributes.
+- `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
+  each newly detected MMSI in that area.
+- When SearXNG is configured,
+  `camera.ais_ship_tracker_<area>_last_passing_ship_photo` — the latest vessel
+  photo for that area.
 - `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
   state.
 - `zone.ais_ship_tracking_area` and one additional passive zone per configured
   area — map representations of the selected Home Assistant source zones.
-- `event.ais_ship_tracker_last_ship_updated` — emits `ship_updated` for each
-  newly detected MMSI.
 
 When map entities are enabled, up to the configured maximum number of active
 vessels get sensors named `sensor.ais_ship_tracker_<ship-name>` with latitude,
@@ -81,10 +84,10 @@ the MMSI. When a vessel expires from the map
 timeout or is evicted by the limit, its entity and entity-registry entry are
 removed; it will be recreated if it is observed again.
 
-When SearXNG is configured, the integration additionally creates
-`camera.ais_ship_tracker_last_passing_ship_photo`. It includes the provider,
-source URL, vessel name, and MMSI as attributes. The dashboard can link to the
-vessel's [MarineTraffic page](https://www.marinetraffic.com/).
+Photo cameras include the provider, source URL, vessel name, and MMSI as
+attributes. The dashboard can link to the vessel's [MarineTraffic
+page](https://www.marinetraffic.com/). For example, the default `Home` area
+uses `sensor.ais_ship_tracker_home_last_passing_ship`.
 
 ## License and branding
 

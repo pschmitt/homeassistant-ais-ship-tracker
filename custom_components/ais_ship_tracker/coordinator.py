@@ -45,11 +45,15 @@ class ShipPhotoCoordinator:
         username: str | None,
         password: str | None,
         entry_id: str,
+        area_id: str,
+        area_name: str,
     ) -> None:
         self.hass = hass
         self.session = session
         self.searxng_url = searxng_url.rstrip("/")
         self.tracker = tracker
+        self.area_id = area_id
+        self.area_name = area_name
         self._auth = BasicAuth(username, password) if username else None
         self.entry_id = entry_id
         self._image: bytes | None = None
@@ -101,7 +105,7 @@ class ShipPhotoCoordinator:
     @property
     def needs_refresh(self) -> bool:
         """Return whether the current entity needs a lookup."""
-        ship = self.tracker.last_ship
+        ship = self.tracker.last_ships.get(self.area_id)
         if ship is None:
             return False
         mmsi = str(ship.get("mmsi", ""))
@@ -128,7 +132,7 @@ class ShipPhotoCoordinator:
         """Search for and cache the current vessel photo."""
         if not self.searxng_url:
             return
-        ship = self.tracker.last_ship
+        ship = self.tracker.last_ships.get(self.area_id)
         if ship is None:
             self._set_error("No vessel has been detected yet")
             return

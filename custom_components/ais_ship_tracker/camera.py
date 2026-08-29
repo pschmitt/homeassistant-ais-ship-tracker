@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.camera import Camera
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
+from .areas import area_id, area_name, area_slug, configured_areas
 from .coordinator import ShipPhotoCoordinator
-from .entity import AisShipTrackerEntity
+from .entity import AisShipTrackerEntity, remove_legacy_entities
 
 
 async def async_setup_entry(
@@ -16,11 +19,17 @@ async def async_setup_entry(
     entry: AisShipTrackerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the AIS ship photo camera."""
-    del hass
+    """Set up one AIS ship photo camera per tracking area."""
     assert entry.runtime_data is not None
-    assert entry.runtime_data.photo is not None
-    async_add_entities([ShipPhotoCamera(entry.runtime_data.photo, entry)])
+    remove_legacy_entities(hass, entry, {"last_passing_ship_photo"})
+    async_add_entities(
+        ShipPhotoCamera(
+            entry.runtime_data.photos[area_id(area, index)], entry, area, index
+        )
+        for index, area in enumerate(
+            configured_areas(entry.runtime_data.tracker.settings), 1
+        )
+    )
 
 
 class ShipPhotoCamera(AisShipTrackerEntity, Camera):
@@ -33,8 +42,15 @@ class ShipPhotoCamera(AisShipTrackerEntity, Camera):
         self,
         coordinator: ShipPhotoCoordinator,
         entry: AisShipTrackerConfigEntry,
+        area: dict[str, Any],
+        index: int,
     ) -> None:
-        self._attr_unique_id = "last_passing_ship_photo"
+        self.area_id = area_id(area, index)
+        self._attr_name = f"{area_name(area, index)} Last Passing Ship Photo"
+        self._attr_unique_id = f"last_passing_ship_photo_{self.area_id}"
+        self._attr_suggested_object_id = (
+            f"{area_slug(area, index)}_last_passing_ship_photo"
+        )
         self.coordinator = coordinator
         AisShipTrackerEntity.__init__(self, entry)
 

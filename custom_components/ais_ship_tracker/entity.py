@@ -3,10 +3,26 @@
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 
 from .const import CONF_SEARXNG_URL, DOMAIN
+
+
+def remove_legacy_entities(
+    hass: HomeAssistant, entry: ConfigEntry, unique_ids: set[str]
+) -> None:
+    """Remove entity-registry entries from the former global model."""
+    registry = er.async_get(hass)
+    for registry_entry in registry.entities.get_entries_for_config_entry_id(
+        entry.entry_id
+    ):
+        if registry_entry.unique_id in unique_ids:
+            registry.async_remove(registry_entry.entity_id)
+
+
 class AisShipTrackerEntity(Entity):
     """Base entity for the AIS Ship Tracker service device."""
 

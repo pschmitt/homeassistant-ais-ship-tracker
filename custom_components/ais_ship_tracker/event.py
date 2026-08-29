@@ -9,7 +9,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
-from .entity import AisShipTrackerEntity
+from .areas import area_id, area_name, area_slug, configured_areas
+from .entity import AisShipTrackerEntity, remove_legacy_entities
 
 
 async def async_setup_entry(
@@ -17,37 +18,49 @@ async def async_setup_entry(
     entry: AisShipTrackerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the last-ship-updated event entity."""
-    async_add_entities([LastShipUpdatedEvent(entry)])
+    """Set up one last-ship-updated event entity per area."""
+    remove_legacy_entities(hass, entry, {"last_ship_updated"})
+    tracker = entry.runtime_data.tracker
+    async_add_entities(
+        LastShipUpdatedEvent(entry, area, index)
+        for index, area in enumerate(configured_areas(tracker.settings), 1)
+    )
 
 
 class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
-    """Fire when the add-on records a new last passing vessel."""
+    """Fire when the integration records a new last passing vessel."""
 
     _attr_event_types = ["ship_updated"]
     _attr_icon = "mdi:ferry"
     _attr_translation_key = "last_ship_updated"
 
-    def __init__(self, entry: AisShipTrackerConfigEntry) -> None:
+    def __init__(
+        self, entry: AisShipTrackerConfigEntry, area: dict[str, Any], index: int
+    ) -> None:
         """Initialize the event entity."""
         runtime = entry.runtime_data
         assert runtime is not None
         self.coordinator = runtime.tracker
+        self.area_id = area_id(area, index)
+        self.area_name = area_name(area, index)
+        self._attr_name = f"{self.area_name} Last Ship Updated"
+        self._attr_unique_id = f"last_ship_updated_{self.area_id}"
+        self._attr_suggested_object_id = f"{area_slug(area, index)}_last_ship_updated"
         super().__init__(entry)
-        self._attr_unique_id = "last_ship_updated"
         self._last_mmsi: str | None = None
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to the tracked vessel entity."""
         await super().async_added_to_hass()
-        if self.coordinator.last_ship is not None:
-            self._last_mmsi = self._mmsi(self.coordinator.last_ship)
+        last_ship = self.coordinator.last_ships.get(self.area_id)
+        if last_ship is not None:
+            self._last_mmsi = self._mmsi(last_ship)
         self.async_on_remove(self.coordinator.async_add_listener(self._tracker_updated))
 
     @callback
     def _tracker_updated(self) -> None:
         """Trigger for a newly recorded vessel."""
-        ship = self.coordinator.last_ship
+        ship = self.coordinator.last_ships.get(self.area_id)
         if ship is None:
             return
         mmsi = self._mmsi(ship)
@@ -67,6 +80,8 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                 "navigational_status": ship.get("navigational_status"),
                 "vessel_class": ship.get("vessel_class"),
                 "spotted_time": ship.get("spotted_time"),
+                "area_id": self.area_id,
+                "area_name": self.area_name,
             },
         )
 

@@ -13,7 +13,8 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AisShipTrackerConfigEntry
-from .entity import AisShipTrackerEntity
+from .areas import area_id, area_name, area_slug, configured_areas
+from .entity import AisShipTrackerEntity, remove_legacy_entities
 from .tracker import AisTrackerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,10 +27,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up the persistent and optional map sensors."""
     tracker = entry.runtime_data.tracker
-    entities: list[SensorEntity] = [
-        LastPassingShipSensor(entry),
-        AisConnectionStatusSensor(entry),
-    ]
+    remove_legacy_entities(hass, entry, {"last_passing_ship"})
+    entities: list[SensorEntity] = [AisConnectionStatusSensor(entry)]
+    entities.extend(
+        LastPassingShipSensor(entry, area, index)
+        for index, area in enumerate(configured_areas(tracker.settings), 1)
+    )
     known: dict[str, AisMapShipSensor] = {}
     if tracker.map_entities_enabled:
         for mmsi, ship in tracker.ships.items():
@@ -106,26 +109,31 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
     _attr_icon = "mdi:ferry"
     _attr_name = "Last Passing Ship"
 
-    def __init__(self, entry: AisShipTrackerConfigEntry) -> None:
+    def __init__(
+        self, entry: AisShipTrackerConfigEntry, area: dict[str, Any], index: int
+    ) -> None:
         """Initialize the last vessel sensor."""
         super().__init__(entry)
-        self._attr_unique_id = "last_passing_ship"
+        self.area_id = area_id(area, index)
+        self._attr_name = f"{area_name(area, index)} Last Passing Ship"
+        self._attr_unique_id = f"last_passing_ship_{self.area_id}"
+        self._attr_suggested_object_id = f"{area_slug(area, index)}_last_passing_ship"
         self.coordinator = entry.runtime_data.tracker
 
     @property
     def available(self) -> bool:
         """Return whether a vessel has been detected or restored."""
-        return self.coordinator.last_ship is not None
+        return self.area_id in self.coordinator.last_ships
 
     @property
     def native_value(self) -> str | None:
         """Return the latest vessel name."""
-        return (self.coordinator.last_ship or {}).get("ship_name")
+        return self.coordinator.last_ships.get(self.area_id, {}).get("ship_name")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the latest vessel details."""
-        return self.coordinator.last_ship or {}
+        return self.coordinator.last_ships.get(self.area_id, {})
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""
