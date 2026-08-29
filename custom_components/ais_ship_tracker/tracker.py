@@ -23,7 +23,9 @@ from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
-_STORE_VERSION = 2
+# Keep the Home Assistant Store version stable. The payload format migration is
+# handled below so older installs do not require a Store migration callback.
+_STORE_VERSION = 1
 _RECONNECT_DELAY = 10
 
 _NAV_STATUS = {
