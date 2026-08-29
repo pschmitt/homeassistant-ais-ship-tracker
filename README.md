@@ -95,7 +95,8 @@ The integration creates these entities for every configured tracking area:
   `sensor.ais_ship_tracker_<area>_ships_this_hour` — distinct MMSI counts for
   the local calendar day and rolling last 3,600 seconds.
 - `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
-  each newly detected MMSI in that area.
+  each newly detected MMSI in that area after its optional photo lookup
+  completes, with a bounded 45-second wait.
 - When SearXNG is configured,
   `camera.ais_ship_tracker_<area>_last_passing_ship_photo` — the latest vessel
   photo for that area.
