@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 
-from .areas import configured_areas
+from .areas import area_bounding_box, configured_areas
 from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
                     CONF_INCLUDE_CLASS_B, CONF_MAP_TIMEOUT_MINUTES,
                     CONF_MAX_MAP_ENTITIES, CONF_VESSEL_WATCHLIST, DOMAIN,
@@ -136,6 +136,7 @@ class AisTrackerCoordinator:
 
     async def async_start(self) -> None:
         """Restore state and start the AISStream task."""
+        self._stopping = False
         stored = await self._store.async_load()
         if isinstance(stored, dict) and stored.get("mmsi"):
             self.last_ship = stored
@@ -143,6 +144,11 @@ class AisTrackerCoordinator:
         self._task = self.hass.async_create_task(
             self._run(), name=f"{DOMAIN}_{self.entry_id}"
         )
+
+    async def async_restart(self) -> None:
+        """Restart the subscription after a source zone changes."""
+        await self.async_stop()
+        await self.async_start()
 
     async def async_stop(self) -> None:
         """Stop the AISStream task."""
@@ -182,17 +188,9 @@ class AisTrackerCoordinator:
             subscription = {
                 "APIKey": self.settings[CONF_API_KEY],
                 "BoundingBoxes": [
-                    [
-                        [
-                            float(area["latitude_south"]),
-                            float(area["longitude_west"]),
-                        ],
-                        [
-                            float(area["latitude_north"]),
-                            float(area["longitude_east"]),
-                        ],
-                    ]
+                    bounding_box
                     for area in configured_areas(self.settings)
+                    if (bounding_box := area_bounding_box(self.hass, area)) is not None
                 ],
                 "FilterMessageTypes": ["PositionReport", "ShipStaticData"],
             }

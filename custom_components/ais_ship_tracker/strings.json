@@ -26,19 +26,14 @@
       },
       "area": {
         "title": "Tracking area {area_number} of {area_count}",
-        "description": "Define the bounding box and passive zone radius for this area.",
+        "description": "Choose the Home Assistant zone whose center and radius should be used for AIS lookups.",
         "data": {
           "area_name": "Area name",
-          "longitude_west": "West longitude",
-          "latitude_south": "South latitude",
-          "longitude_east": "East longitude",
-          "latitude_north": "North latitude",
-          "zone_radius": "Passive zone radius (metres)"
+          "zone_entity": "Source Home Assistant zone"
         },
         "error": {
           "invalid_area_name": "Enter a name for this tracking area.",
-          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
-          "invalid_radius": "Enter a positive target zone radius."
+          "invalid_zone": "Choose an existing Home Assistant zone."
         }
       }
     }
@@ -82,19 +77,14 @@
       },
       "area": {
         "title": "Tracking area",
-        "description": "Define the bounding box and passive zone radius for this area.",
+        "description": "Choose the Home Assistant zone whose center and radius should be used for AIS lookups.",
         "data": {
           "area_name": "Area name",
-          "longitude_west": "West longitude",
-          "latitude_south": "South latitude",
-          "longitude_east": "East longitude",
-          "latitude_north": "North latitude",
-          "zone_radius": "Passive zone radius (metres)"
+          "zone_entity": "Source Home Assistant zone"
         },
         "error": {
           "invalid_area_name": "Enter a name for this tracking area.",
-          "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
-          "invalid_radius": "Enter a positive target zone radius."
+          "invalid_zone": "Choose an existing Home Assistant zone."
         }
       },
       "remove_area": {

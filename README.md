@@ -31,29 +31,26 @@ Restart Home Assistant and add **AIS Ship Tracker** from
 
 ## Configuration
 
-Create an API key at [AISStream.io](https://aisstream.io). The config flow
-first asks for the shared settings and the number of tracking areas. It then
-presents one form per area, so multiple areas use the same credentials and a
-single AISStream subscription. Each area has a name, south-west and north-east
-corners, and its own passive zone radius. Values are decimal degrees; for
-example, a small Spree section can be configured as:
+Create an API key at [AISStream.io](https://aisstream.io). Each tracking area
+uses an existing Home Assistant `zone.*` entity as its source. The zone's
+latitude, longitude, and radius are read directly from Home Assistant; the
+integration converts that circular zone into the square north-west/south-east
+bounding box required by AISStream. This keeps the HA zone as the single source
+of truth: changing its center or radius automatically rebuilds the AIS
+subscription.
 
-```text
-West: 13.3125       South: 52.5198
-East: 13.3190       North: 52.5235
-```
+The initial flow asks for shared settings and the number of tracking areas,
+then presents one form per area. Multiple areas use the same credentials and a
+single AISStream subscription. Open **Configure** for the integration and use
+**Manage tracking areas** to select the source zone for each named area, add
+another area, or remove one; shared settings are edited separately.
 
-When adding the integration, the first area's coordinates and radius are
-initially derived from Home Assistant's `zone.home`. They remain fully
-editable in the options flow. Open **Configure** for the integration and use
-**Manage tracking areas** to edit a named area, add another, or remove one;
-shared settings are edited separately. The integration creates one passive HA
-zone per area; the first is `zone.ais_ship_tracking_area` and additional zones include
-the configured area name. Additional zones are centered on their bounding box
-and have a configurable radius in metres; the first zone follows `zone.home`
-exactly. These zones are safe to use on maps without
-affecting presence tracking. Zones are updated when the integration is
-reconfigured and removed when the integration is removed.
+The integration also creates one passive HA zone per configured area for map
+display; the first is `zone.ais_ship_tracking_area` and additional zones
+include the configured area name. These mirror zones follow their selected
+source zone and are updated when that source changes. They are safe to use on
+maps without affecting presence tracking, and are removed with the
+integration.
 
 Class B transponders, an MMSI watchlist, and map entity retention can be
 changed later from the integration's options. Map entities are limited to ten
@@ -73,8 +70,7 @@ The integration creates these entities unconditionally:
 - `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
   state.
 - `zone.ais_ship_tracking_area` and one additional passive zone per configured
-  area — configurable-radius representations of the target areas for Home
-  Assistant map cards.
+  area — map representations of the selected Home Assistant source zones.
 - `event.ais_ship_tracker_last_ship_updated` — emits `ship_updated` for each
   newly detected MMSI.
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from math import cos, radians
 from typing import Any
 from urllib.parse import urlparse
 
@@ -10,21 +9,34 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry, OptionsFlowWithReload
 from homeassistant.core import callback
-from homeassistant.helpers.selector import (BooleanSelector, NumberSelector,
-                                            NumberSelectorConfig, TextSelector,
-                                            TextSelectorConfig,
-                                            TextSelectorType, SelectSelector,
-                                            SelectSelectorConfig)
+from homeassistant.helpers.selector import (
+    BooleanSelector,
+    NumberSelector,
+    NumberSelectorConfig,
+    SelectSelector,
+    SelectSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .areas import area_form_defaults, area_from_form, configured_areas
-from .const import (CONF_API_KEY, CONF_AREA_COUNT, CONF_AREA_NAME, CONF_AREAS,
-                    CONF_ENABLE_MAP_ENTITIES, CONF_INCLUDE_CLASS_B,
-                    CONF_LATITUDE_NORTH, CONF_LATITUDE_SOUTH,
-                    CONF_LONGITUDE_EAST, CONF_LONGITUDE_WEST,
-                    CONF_MAP_TIMEOUT_MINUTES, CONF_MAX_MAP_ENTITIES,
-                    CONF_SEARXNG_PASSWORD, CONF_SEARXNG_URL,
-                    CONF_SEARXNG_USERNAME, CONF_VESSEL_WATCHLIST,
-                    CONF_ZONE_RADIUS, DOMAIN)
+from .const import (
+    CONF_API_KEY,
+    CONF_AREA_COUNT,
+    CONF_AREA_NAME,
+    CONF_AREAS,
+    CONF_ENABLE_MAP_ENTITIES,
+    CONF_INCLUDE_CLASS_B,
+    CONF_MAP_TIMEOUT_MINUTES,
+    CONF_MAX_MAP_ENTITIES,
+    CONF_SEARXNG_PASSWORD,
+    CONF_SEARXNG_URL,
+    CONF_SEARXNG_USERNAME,
+    CONF_VESSEL_WATCHLIST,
+    CONF_ZONE_ENTITY,
+    DOMAIN,
+)
 
 _MAX_AREAS = 10
 
@@ -78,33 +90,39 @@ def _common_schema(
     return vol.Schema(schema)
 
 
-def _area_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+def _zone_options(hass: Any, selected: str | None = None) -> list[dict[str, str]]:
+    """Return selectable Home Assistant zones for an area source."""
+    options = []
+    entity_ids = hass.states.async_entity_ids("zone")
+    for entity_id in sorted(entity_ids):
+        state = hass.states.get(entity_id)
+        label = (
+            str(state.attributes.get("friendly_name", entity_id))
+            if state is not None
+            else entity_id
+        )
+        options.append({"value": entity_id, "label": f"{label} ({entity_id})"})
+    if selected and selected not in entity_ids:
+        options.append({"value": selected, "label": selected})
+    return options
+
+
+def _area_schema(
+    defaults: dict[str, Any] | None = None, hass: Any = None
+) -> vol.Schema:
     """Return the schema for one named tracking area."""
     defaults = defaults or {}
-    longitude = NumberSelectorConfig(min=-180, max=180, step=0.001, mode="box")
-    latitude = NumberSelectorConfig(min=-90, max=90, step=0.001, mode="box")
+    selected_zone = defaults.get(CONF_ZONE_ENTITY, "zone.home")
     return vol.Schema(
         {
             vol.Required(
                 CONF_AREA_NAME, default=defaults.get(CONF_AREA_NAME, "Home")
             ): TextSelector(),
             vol.Required(
-                CONF_LONGITUDE_WEST, default=defaults.get(CONF_LONGITUDE_WEST, 0)
-            ): NumberSelector(longitude),
-            vol.Required(
-                CONF_LATITUDE_SOUTH, default=defaults.get(CONF_LATITUDE_SOUTH, 0)
-            ): NumberSelector(latitude),
-            vol.Required(
-                CONF_LONGITUDE_EAST, default=defaults.get(CONF_LONGITUDE_EAST, 0)
-            ): NumberSelector(longitude),
-            vol.Required(
-                CONF_LATITUDE_NORTH, default=defaults.get(CONF_LATITUDE_NORTH, 0)
-            ): NumberSelector(latitude),
-            vol.Required(
-                CONF_ZONE_RADIUS, default=defaults.get(CONF_ZONE_RADIUS, 100)
-            ): NumberSelector(
-                NumberSelectorConfig(min=1, max=100000, step=1, mode="box")
-            ),
+                CONF_ZONE_ENTITY, default=selected_zone
+            ): SelectSelector(
+                SelectSelectorConfig(options=_zone_options(hass, selected_zone))
+            )
         }
     )
 
@@ -121,16 +139,13 @@ def _validate_common_input(user_input: dict[str, Any]) -> str | None:
     return None
 
 
-def _validate_area(user_input: dict[str, Any]) -> str | None:
+def _validate_area(user_input: dict[str, Any], hass: Any) -> str | None:
     """Validate one tracking area."""
     if not str(user_input.get(CONF_AREA_NAME, "")).strip():
         return "invalid_area_name"
-    if user_input[CONF_LATITUDE_SOUTH] >= user_input[CONF_LATITUDE_NORTH]:
-        return "invalid_bounds"
-    if user_input[CONF_LONGITUDE_WEST] >= user_input[CONF_LONGITUDE_EAST]:
-        return "invalid_bounds"
-    if float(user_input.get(CONF_ZONE_RADIUS, 0)) <= 0:
-        return "invalid_radius"
+    zone_entity = str(user_input.get(CONF_ZONE_ENTITY, ""))
+    if not zone_entity.startswith("zone.") or hass.states.get(zone_entity) is None:
+        return "invalid_zone"
     return None
 
 
@@ -146,24 +161,6 @@ def _clean_common_input(user_input: dict[str, Any]) -> dict[str, Any]:
         if item.strip()
     )
     return cleaned
-
-
-def _home_defaults(hass: Any) -> dict[str, float]:
-    """Return a small bounding box centered on the Home Assistant home zone."""
-    home = hass.states.get("zone.home")
-    attributes = home.attributes if home is not None else {}
-    latitude = float(attributes.get("latitude", hass.config.latitude))
-    longitude = float(attributes.get("longitude", hass.config.longitude))
-    radius = float(attributes.get("radius", hass.config.radius))
-    latitude_delta = radius / 111_320
-    longitude_delta = radius / (111_320 * max(cos(radians(latitude)), 0.01))
-    return {
-        CONF_LONGITUDE_WEST: longitude - longitude_delta,
-        CONF_LATITUDE_SOUTH: latitude - latitude_delta,
-        CONF_LONGITUDE_EAST: longitude + longitude_delta,
-        CONF_LATITUDE_NORTH: latitude + latitude_delta,
-        CONF_ZONE_RADIUS: radius,
-    }
 
 
 # Kept as compatibility helpers for external tooling and old repair flows.
@@ -196,7 +193,7 @@ class _AreaFlowMixin:
         errors: dict[str, str] = {}
         defaults = self._area_defaults[self._area_index]
         if user_input is not None:
-            error = _validate_area(user_input)
+            error = _validate_area(user_input, self.hass)
             if error:
                 errors["base"] = error
             else:
@@ -210,7 +207,7 @@ class _AreaFlowMixin:
 
         return self.async_show_form(
             step_id="area",
-            data_schema=_area_schema(defaults),
+            data_schema=_area_schema(defaults, self.hass),
             description_placeholders={
                 "area_number": str(self._area_index + 1),
                 "area_count": str(self._area_count),
@@ -249,7 +246,7 @@ class AisShipTrackerConfigFlow(
                 self._area_count = area_count
                 self._area_index = 0
                 self._area_defaults = [
-                    {CONF_AREA_NAME: "Home", **_home_defaults(self.hass)}
+                    {CONF_AREA_NAME: "Home", CONF_ZONE_ENTITY: "zone.home"}
                 ] + [{} for _ in range(area_count - 1)]
                 return await self._async_step_area()
 
@@ -370,12 +367,12 @@ class AisShipTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
         if is_new:
             defaults = {
                 CONF_AREA_NAME: f"Area {len(self._pending_areas) + 1}",
-                **_home_defaults(self.hass),
+                CONF_ZONE_ENTITY: "zone.home",
             }
         else:
             defaults = area_form_defaults(self._pending_areas[self._area_index])
         if user_input is not None:
-            error = _validate_area(user_input)
+            error = _validate_area(user_input, self.hass)
             if error:
                 errors["base"] = error
             else:
@@ -395,7 +392,7 @@ class AisShipTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
                 return await self.async_step_areas()
         return self.async_show_form(
             step_id="area",
-            data_schema=_area_schema(defaults),
+            data_schema=_area_schema(defaults, self.hass),
             description_placeholders={
                 "area_name": str(defaults.get(CONF_AREA_NAME, ""))
             },

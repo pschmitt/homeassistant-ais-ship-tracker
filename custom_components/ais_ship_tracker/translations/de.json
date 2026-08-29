@@ -26,19 +26,14 @@
       },
       "area": {
         "title": "Verfolgungsgebiet {area_number} von {area_count}",
-        "description": "Lege die Begrenzung und den Radius der passiven Zone für dieses Gebiet fest.",
+        "description": "Wähle die Home-Assistant-Zone, deren Mittelpunkt und Radius für die AIS-Suche verwendet werden.",
         "data": {
           "area_name": "Name des Gebiets",
-          "longitude_west": "Westlicher Längengrad",
-          "latitude_south": "Südlicher Breitengrad",
-          "longitude_east": "Östlicher Längengrad",
-          "latitude_north": "Nördlicher Breitengrad",
-          "zone_radius": "Radius der passiven Zone (Meter)"
+          "zone_entity": "Quellzone von Home Assistant"
         },
         "error": {
           "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
-          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
-          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+          "invalid_zone": "Wähle eine vorhandene Home-Assistant-Zone."
         }
       }
     }
@@ -82,19 +77,14 @@
       },
       "area": {
         "title": "Verfolgungsgebiet",
-        "description": "Lege die Begrenzung und den Radius der passiven Zone für dieses Gebiet fest.",
+        "description": "Wähle die Home-Assistant-Zone, deren Mittelpunkt und Radius für die AIS-Suche verwendet werden.",
         "data": {
           "area_name": "Name des Gebiets",
-          "longitude_west": "Westlicher Längengrad",
-          "latitude_south": "Südlicher Breitengrad",
-          "longitude_east": "Östlicher Längengrad",
-          "latitude_north": "Nördlicher Breitengrad",
-          "zone_radius": "Radius der passiven Zone (Meter)"
+          "zone_entity": "Quellzone von Home Assistant"
         },
         "error": {
           "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
-          "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
-          "invalid_radius": "Gib einen positiven Radius für die Zielzone ein."
+          "invalid_zone": "Wähle eine vorhandene Home-Assistant-Zone."
         }
       },
       "remove_area": {

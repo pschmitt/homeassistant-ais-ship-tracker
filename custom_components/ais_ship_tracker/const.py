@@ -19,6 +19,7 @@ CONF_INCLUDE_CLASS_B = "include_class_b"
 CONF_VESSEL_WATCHLIST = "vessel_watchlist"
 CONF_CLEAR_MAP_ON_STARTUP = "clear_map_on_startup"
 CONF_MAP_TIMEOUT_MINUTES = "map_timeout_minutes"
+CONF_ZONE_ENTITY = "zone_entity"
 CONF_ZONE_RADIUS = "zone_radius"
 
 CONF_SEARXNG_URL = "searxng_url"

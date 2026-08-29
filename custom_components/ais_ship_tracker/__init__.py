@@ -10,11 +10,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.issue_registry import IssueSeverity
 
 from .areas import configured_areas
 from .const import (CONF_AREAS, CONF_SEARXNG_PASSWORD, CONF_SEARXNG_URL,
-                    CONF_SEARXNG_USERNAME, DOMAIN, PLATFORMS)
+                    CONF_SEARXNG_USERNAME, CONF_ZONE_ENTITY, DOMAIN, PLATFORMS)
 from .coordinator import ShipPhotoCoordinator
 from .tracker import AisTrackerCoordinator
 from .zone import async_remove_zones, async_sync_zones
@@ -105,6 +106,32 @@ async def async_setup_entry(
     )
     entry.runtime_data = AisShipTrackerRuntime(tracker=tracker, photo=photo)
     await tracker.async_start()
+
+    source_zones = {
+        str(area[CONF_ZONE_ENTITY])
+        for area in configured_areas(settings)
+        if area.get(CONF_ZONE_ENTITY)
+    }
+
+    async def async_refresh_source_zone() -> None:
+        """Refresh the mirrored zone and AIS subscription."""
+        await async_sync_zones(hass, entry.entry_id, settings)
+        await tracker.async_restart()
+
+    @callback
+    def source_zone_changed(event: Any) -> None:
+        """Refresh the AIS rectangle when a source zone changes."""
+        del event
+        entry.async_create_background_task(
+            hass,
+            async_refresh_source_zone(),
+            "ais_ship_tracker_zone_changed",
+        )
+
+    if source_zones:
+        entry.async_on_unload(
+            async_track_state_change_event(hass, source_zones, source_zone_changed)
+        )
 
     platforms = ["sensor", "event"]
     if photo is not None:
