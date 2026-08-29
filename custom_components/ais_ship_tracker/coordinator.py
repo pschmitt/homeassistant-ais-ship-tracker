@@ -9,7 +9,8 @@ import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
-from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
+from html import unescape
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlsplit
 
 from aiohttp import BasicAuth, ClientError, ClientResponseError, ClientSession
 from bs4 import BeautifulSoup
@@ -29,6 +30,7 @@ _VESSEL_FINDER_NO_PHOTO = re.compile(
     r"(?:cool-ship|no[-_ ]photo|placeholder)",
     re.IGNORECASE,
 )
+_MARINE_TRAFFIC_SHIP_ID = re.compile(r"/shipid:(\d+)", re.IGNORECASE)
 _RETRY_INTERVAL = timedelta(minutes=5)
 _PHOTO_STORE_VERSION = 1
 
@@ -50,6 +52,33 @@ def _search_photo_candidate(
                 return proxy_url, "MarineTraffic"
             if "static.vesselfinder.net/ship-photo/" in image_url:
                 return proxy_url, "VesselFinder"
+    return None
+
+
+def _marine_traffic_ship_id(search_html: str) -> str | None:
+    """Extract MarineTraffic's internal vessel ID from search results."""
+    soup = BeautifulSoup(search_html, "html.parser")
+    values: list[str] = []
+    for tag in soup.find_all(["a", "img", "meta", "source"]):
+        for attribute in (
+            "href",
+            "src",
+            "data-src",
+            "data-original",
+            "data-url",
+            "content",
+        ):
+            value = tag.get(attribute)
+            if isinstance(value, str):
+                values.append(value)
+
+    # SearXNG may HTML- or percent-encode the result URL in an image result.
+    values.append(search_html)
+    for value in values:
+        normalized = unquote(unescape(value))
+        match = _MARINE_TRAFFIC_SHIP_ID.search(normalized)
+        if match:
+            return match.group(1)
     return None
 
 
@@ -164,6 +193,7 @@ class ShipPhotoCoordinator:
         self._image: bytes | None = None
         self._content_type = "image/jpeg"
         self._mmsi = ""
+        self._marine_traffic_ship_id = ""
         self._vessel_name = ""
         self._provider = ""
         self._photo_url = ""
@@ -224,6 +254,9 @@ class ShipPhotoCoordinator:
         self._image = image
         self._content_type = str(stored.get("content_type") or "image/jpeg")
         self._mmsi = mmsi
+        self._marine_traffic_ship_id = str(
+            stored.get("marine_traffic_ship_id") or ""
+        )
         self._vessel_name = str(stored.get("vessel_name") or "")
         self._provider = str(stored.get("provider") or "")
         self._photo_url = str(stored.get("photo_url") or "")
@@ -250,6 +283,7 @@ class ShipPhotoCoordinator:
             "image": base64.b64encode(self._image or b"").decode("ascii"),
             "content_type": self._content_type,
             "mmsi": self._mmsi,
+            "marine_traffic_ship_id": self._marine_traffic_ship_id,
             "vessel_name": self._vessel_name,
             "provider": self._provider,
             "photo_url": self._photo_url,
@@ -281,6 +315,11 @@ class ShipPhotoCoordinator:
         return self._vessel_name
 
     @property
+    def marine_traffic_ship_id(self) -> str:
+        """Return MarineTraffic's internal vessel ID."""
+        return self._marine_traffic_ship_id
+
+    @property
     def attributes(self) -> dict[str, Any]:
         """Return the current vessel and photo lookup details for the camera."""
         ship = self.tracker.last_ships.get(self.area_id, {})
@@ -293,6 +332,11 @@ class ShipPhotoCoordinator:
             ship_attributes.get("ship_name") or self._vessel_name or ""
         )
         mmsi = str(ship_attributes.get("mmsi") or self._mmsi or "")
+        marine_ship_id = str(
+            ship_attributes.get("marine_traffic_ship_id")
+            or self._marine_traffic_ship_id
+            or ""
+        )
         search_query = " ".join(part for part in (vessel_name, mmsi) if part)
         search_url = (
             f"{self.searxng_url}/search?"
@@ -308,7 +352,8 @@ class ShipPhotoCoordinator:
             "vessel_name": vessel_name or None,
             "mmsi": mmsi or None,
             "vessel_finder_url": vessel_finder_url(mmsi),
-            "marinetraffic_url": marine_traffic_url(mmsi),
+            "marine_traffic_ship_id": marine_ship_id or None,
+            "marinetraffic_url": marine_traffic_url(marine_ship_id),
             "provider": self._provider or None,
             "photo_origin": self._provider or None,
             "photo_url": self._photo_url or None,
@@ -332,7 +377,12 @@ class ShipPhotoCoordinator:
         mmsi = str(ship.get("mmsi", ""))
         if mmsi != self._mmsi:
             return True
-        if self._cache_photos and self._image is not None and self._photo_cacheable:
+        if (
+            self._cache_photos
+            and self._image is not None
+            and self._photo_cacheable
+            and self._marine_traffic_ship_id
+        ):
             return False
         return (
             self._last_attempt is None
@@ -382,13 +432,20 @@ class ShipPhotoCoordinator:
             self._last_attempt = datetime.now(UTC)
             if (
                 self._cache_photos
-                and (mmsi != self._mmsi or self._image is None)
+                and (
+                    mmsi != self._mmsi
+                    or self._image is None
+                )
                 and self._restore_cached_photo(mmsi)
+                and self._marine_traffic_ship_id
             ):
                 self._notify_listeners()
                 return
             self._vessel_name = vessel_name
             self._mmsi = mmsi
+            self._marine_traffic_ship_id = str(
+                ship.get("marine_traffic_ship_id") or ""
+            )
             self._provider = ""
             self._photo_url = ""
             self._photo_author = ""
@@ -420,6 +477,10 @@ class ShipPhotoCoordinator:
                     response.raise_for_status()
                     search_html = await response.text()
                 self._set_service_issue(None)
+                marine_ship_id = _marine_traffic_ship_id(search_html)
+                if marine_ship_id:
+                    self._marine_traffic_ship_id = marine_ship_id
+                    self.tracker.set_marine_traffic_ship_id(mmsi, marine_ship_id)
                 search_candidate = _search_photo_candidate(
                     search_html, self.searxng_url
                 )
@@ -509,7 +570,7 @@ class ShipPhotoCoordinator:
                                 err,
                             )
             if photo_url is None:
-                marine_url = marine_traffic_url(mmsi)
+                marine_url = marine_traffic_url(self._marine_traffic_ship_id)
                 if marine_url:
                     try:
                         async with self.session.get(

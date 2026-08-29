@@ -17,12 +17,12 @@ def vessel_finder_url(mmsi: object) -> str | None:
     return f"https://www.vesselfinder.com/vessels/details/{value}" if value else None
 
 
-def marine_traffic_url(mmsi: object) -> str | None:
-    """Return the MarineTraffic details URL for an MMSI."""
-    value = str(mmsi).strip() if mmsi is not None else ""
+def marine_traffic_url(ship_id: object) -> str | None:
+    """Return the MarineTraffic details URL for an internal vessel ID."""
+    value = str(ship_id).strip() if ship_id is not None else ""
     return (
-        f"https://www.marinetraffic.com/en/ais/details/ships/mmsi:{value}"
-        if value
+        f"https://www.marinetraffic.com/en/ais/details/ships/shipid:{value}"
+        if value.isdigit()
         else None
     )
 

@@ -118,11 +118,14 @@ Photo cameras include the current vessel's AIS attributes, the photo provider,
 source URL, photographer, and credit page, the generated `search_query` and
 `search_url`, and any lookup error as camera attributes. The last-passing-ship
 sensors, temporary per-vessel sensors, event entities, and photo cameras expose
-both `vessel_finder_url` and `marinetraffic_url` whenever an MMSI is available.
-The MarineTraffic link uses its `mmsi:<value>` route; its separate
-`shipid:<value>` route expects MarineTraffic's internal vessel ID. This makes it
-easy to link directly to the vessel details pages. For example, the default
-`Home` area uses `sensor.ais_ship_tracker_home_last_passing_ship`.
+`vessel_finder_url` whenever an MMSI is available. They also expose
+`marinetraffic_url` once a MarineTraffic internal `shipid` has been found in the
+SearXNG results. MarineTraffic does not accept an MMSI in that URL position:
+the URL must use the form
+`https://www.marinetraffic.com/en/ais/details/ships/shipid:<value>`. The
+internal ID is retained with the last-ship data, so the link remains available
+after a restart. For example, the default `Home` area uses
+`sensor.ais_ship_tracker_home_last_passing_ship`.
 
 ## License and branding
 

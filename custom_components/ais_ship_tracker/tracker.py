@@ -420,6 +420,20 @@ class AisTrackerCoordinator:
                 mmsis.add(str(sighting["mmsi"]))
         return len(mmsis)
 
+    def set_marine_traffic_ship_id(self, mmsi: str, ship_id: str) -> None:
+        """Attach MarineTraffic's internal vessel ID to matching ship data."""
+        updated = False
+        for ship in (*self.ships.values(), *self.last_ships.values()):
+            if str(ship.get("mmsi")) != mmsi:
+                continue
+            if ship.get("marine_traffic_ship_id") == ship_id:
+                continue
+            ship["marine_traffic_ship_id"] = ship_id
+            updated = True
+        if updated:
+            self.hass.async_create_task(self._store.async_save(self._stored_data()))
+            self._notify()
+
     def _purge_old_sightings(self) -> None:
         """Keep enough history for current and previous local-day counters."""
         cutoff = datetime.now(UTC) - timedelta(days=2)

@@ -102,6 +102,9 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                         "Timed out waiting for the photo lookup for MMSI %s",
                         mmsi,
                     )
+            marine_ship_id = ship.get("marine_traffic_ship_id")
+            if photo is not None:
+                marine_ship_id = photo.marine_traffic_ship_id or marine_ship_id
             self._trigger_event(
                 "ship_updated",
                 {
@@ -121,7 +124,8 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                     "area_id": self.area_id,
                     "area_name": self.area_name,
                     "vessel_finder_url": vessel_finder_url(mmsi),
-                    "marinetraffic_url": marine_traffic_url(mmsi),
+                    "marine_traffic_ship_id": marine_ship_id,
+                    "marinetraffic_url": marine_traffic_url(marine_ship_id),
                 },
             )
 

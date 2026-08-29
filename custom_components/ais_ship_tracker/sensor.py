@@ -162,7 +162,7 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
-        url = marine_traffic_url(attributes.get("mmsi"))
+        url = marine_traffic_url(attributes.get("marine_traffic_ship_id"))
         if url:
             attributes["marinetraffic_url"] = url
         return attributes
@@ -298,7 +298,7 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
-        url = marine_traffic_url(attributes.get("mmsi"))
+        url = marine_traffic_url(attributes.get("marine_traffic_ship_id"))
         if url:
             attributes["marinetraffic_url"] = url
         return attributes
