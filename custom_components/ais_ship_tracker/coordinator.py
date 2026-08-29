@@ -286,15 +286,19 @@ class ShipPhotoCoordinator:
             if self.searxng_url and search_query
             else None
         )
+        photo_credit = " via ".join(
+            part for part in (self._photo_author, self._provider) if part
+        )
         return {
             **ship_attributes,
             "vessel_name": vessel_name or None,
             "mmsi": mmsi or None,
             "vessel_finder_url": vessel_finder_url(mmsi),
             "provider": self._provider or None,
+            "photo_origin": self._provider or None,
             "photo_url": self._photo_url or None,
             "photo_author": self._photo_author or None,
-            "photo_credit": self._photo_author or self._provider or None,
+            "photo_credit": photo_credit or None,
             "photo_credit_url": self._photo_credit_url or None,
             "search_query": search_query or None,
             "search_url": search_url,
