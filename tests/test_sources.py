@@ -61,6 +61,18 @@ class SourceParserTest(unittest.TestCase):
         assert observation is not None
         self.assertEqual(observation.raw_nmea, ())
 
+    def test_numeric_mmsi_restores_leading_zeroes(self) -> None:
+        observation = sources.parse_aiscatcher_message(
+            {"mmsi": 2182801, "lat": 52.52, "lon": 13.31}
+        )
+
+        self.assertIsNotNone(observation)
+        assert observation is not None
+        self.assertEqual(observation.mmsi, "002182801")
+        self.assertIsNone(
+            sources.parse_aiscatcher_message({"mmsi": 123456})
+        )
+
     def test_aiscatcher_static_data_is_normalized(self) -> None:
         observation = sources.parse_aiscatcher_message(
             {

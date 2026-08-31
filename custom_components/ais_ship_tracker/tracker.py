@@ -467,6 +467,7 @@ class AisTrackerCoordinator:
         if observation.static_data or observation.ship_name:
             self._handle_static_data(observation)
         if observation.latitude is None or observation.longitude is None:
+            self._notify()
             return
 
         now = observation.received_at

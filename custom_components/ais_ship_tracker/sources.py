@@ -237,16 +237,28 @@ def _aishub_timestamp(record: dict[str, Any]) -> datetime | None:
 
 
 def _mmsi(value: Any) -> str | None:
-    """Normalize an MMSI value without accepting malformed identifiers."""
+    """Normalize an MMSI value without accepting malformed identifiers.
+
+    AIS-catcher emits MMSI as a JSON integer.  JSON integers do not preserve
+    leading zeroes, which are valid for some non-ship AIS identities.  Keep
+    string input strict, but restore those zeroes for integer input.
+    """
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
-        normalized = str(value)
+        # The normal nine-digit forms may lose one or two leading zeroes when
+        # AIS-catcher serializes them as JSON integers.  Seven digits is the
+        # shortest plausible representation after that loss.
+        if not 1_000_000 <= value <= 999_999_999:
+            return None
+        normalized = f"{value:09d}"
     elif isinstance(value, str):
         normalized = value.strip()
     else:
         return None
-    return normalized if normalized.isdigit() and len(normalized) == 9 else None
+    if not normalized.isdigit() or len(normalized) != 9:
+        return None
+    return normalized
 
 
 def _text(value: Any) -> str | None:

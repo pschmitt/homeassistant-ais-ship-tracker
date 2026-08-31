@@ -27,7 +27,6 @@ from .const import (
     CONF_ZONE_ENTITY,
     CONF_ZONE_RADIUS,
     DOMAIN,
-    PLATFORMS,
 )
 from .coordinator import ShipPhotoCoordinator
 from .tracker import AisTrackerCoordinator
@@ -43,6 +42,14 @@ class AisShipTrackerRuntime:
 
 
 type AisShipTrackerConfigEntry = ConfigEntry[AisShipTrackerRuntime]
+
+
+def _platforms_for_entry(entry: AisShipTrackerConfigEntry) -> list[str]:
+    """Return only platforms that were forwarded for this config entry."""
+    platforms = ["sensor", "event"]
+    if entry.runtime_data is not None and entry.runtime_data.photos:
+        platforms.append("camera")
+    return platforms
 
 
 async def async_migrate_entry(
@@ -176,10 +183,9 @@ async def async_setup_entry(
             async_track_state_change_event(hass, source_zones, source_zone_changed)
         )
 
-    platforms = ["sensor", "event"]
-    if photos:
-        platforms.append("camera")
-    await hass.config_entries.async_forward_entry_setups(entry, platforms)
+    await hass.config_entries.async_forward_entry_setups(
+        entry, _platforms_for_entry(entry)
+    )
 
     @callback
     def tracker_updated() -> None:
@@ -201,7 +207,9 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: AisShipTrackerConfigEntry
 ) -> bool:
     """Unload AIS Ship Tracker."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(
+        entry, _platforms_for_entry(entry)
+    )
     if entry.runtime_data is not None:
         await entry.runtime_data.tracker.async_stop()
     return unload_ok
