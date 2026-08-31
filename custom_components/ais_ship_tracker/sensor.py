@@ -22,6 +22,7 @@ from .entity import (
     vessel_finder_url,
 )
 from .tracker import AisTrackerCoordinator
+from .sources import SOURCE_AISHUB, SOURCE_LOCAL_MQTT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -193,9 +194,12 @@ class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         """Return the current connection state."""
-        if not self.coordinator.aisstream_enabled:
-            return self.coordinator.source_status.get("local_mqtt", "Disconnected")
-        return self.coordinator.connection_status
+        if self.coordinator.aisstream_enabled:
+            return self.coordinator.connection_status
+        for source in (SOURCE_LOCAL_MQTT, SOURCE_AISHUB):
+            if source in self.coordinator.source_status:
+                return self.coordinator.source_status[source]
+        return "Disconnected"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -203,6 +207,7 @@ class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
         return {
             "error": self.coordinator.connection_error,
             "sources": dict(self.coordinator.source_status),
+            "source_errors": dict(self.coordinator.source_errors),
             "last_message": dict(self.coordinator.source_last_message),
         }
 

@@ -103,6 +103,54 @@ class SourceParserTest(unittest.TestCase):
         self.assertEqual(observation.vessel_class, "Class A")
         self.assertEqual(observation.navigational_status, 0)
 
+    def test_aishub_human_json_is_normalized(self) -> None:
+        observations = sources.parse_aishub_response(
+            [
+                {"ERROR": False, "FORMAT": "HUMAN", "RECORDS": 1},
+                [
+                    {
+                        "MMSI": 211784980,
+                        "TIME": "2026-08-31 19:08:40 GMT",
+                        "LONGITUDE": 13.318421,
+                        "LATITUDE": 52.52264,
+                        "COG": 127.2,
+                        "SOG": 8.4,
+                        "HEADING": 126,
+                        "NAVSTAT": 0,
+                        "IMO": 1234567,
+                        "NAME": "PAULINE",
+                        "CALLSIGN": "DTEST",
+                        "TYPE": 70,
+                        "A": 10,
+                        "B": 20,
+                        "DEST": "BERLIN",
+                        "ETA": "08-31 20:00",
+                    }
+                ],
+            ]
+        )
+
+        self.assertIsNotNone(observations)
+        assert observations is not None
+        self.assertEqual(len(observations), 1)
+        observation = observations[0]
+        self.assertEqual(observation.source, "aishub")
+        self.assertEqual(observation.mmsi, "211784980")
+        self.assertEqual(observation.latitude, 52.52264)
+        self.assertEqual(observation.static_data["ship_length"], 30)
+        self.assertEqual(observation.source_timestamp.year, 2026)
+
+    def test_aishub_unavailable_sentinels_are_normalized(self) -> None:
+        observations = sources.parse_aishub_response(
+            [{"ERROR": False}, [{"MMSI": 211234567, "COG": 360, "SOG": 102.4, "HEADING": 511}]]
+        )
+
+        self.assertIsNotNone(observations)
+        assert observations is not None
+        self.assertIsNone(observations[0].course)
+        self.assertIsNone(observations[0].speed_knots)
+        self.assertIsNone(observations[0].heading)
+
 
 if __name__ == "__main__":
     unittest.main()

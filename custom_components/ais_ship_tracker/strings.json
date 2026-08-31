@@ -9,6 +9,8 @@
           "api_key": "AISStream API key",
           "local_mqtt_enabled": "Enable local AIS-catcher MQTT source",
           "local_mqtt_topic": "AIS-catcher MQTT topic",
+          "aishub_enabled": "Enable AISHub source",
+          "aishub_username": "AISHub username/API key",
           "enable_map_entities": "Create map vessel entities",
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
@@ -22,8 +24,9 @@
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
-          "no_sources": "Enable AISStream or the local AIS-catcher MQTT source.",
+          "no_sources": "Enable AISStream, local AIS-catcher MQTT, or AISHub.",
           "invalid_mqtt_topic": "Enter a valid MQTT subscription topic.",
+          "invalid_aishub_credentials": "Enter an AISHub username/API key when the source is enabled.",
           "invalid_url": "Enter a valid HTTP or HTTPS URL.",
           "invalid_area_name": "Enter a name for this tracking area.",
           "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
@@ -51,6 +54,9 @@
         "description": "Choose shared settings or manage tracking areas.",
         "menu_options": {
           "general": "General settings",
+          "aisstream": "AISStream source",
+          "local_mqtt": "Local AIS-catcher MQTT source",
+          "aishub": "AISHub source",
           "areas": "Manage tracking areas",
           "finish": "Save changes"
         }
@@ -59,10 +65,6 @@
         "title": "General AIS settings",
         "description": "Settings shared by all tracking areas.",
         "data": {
-          "aisstream_enabled": "Enable AISStream source",
-          "api_key": "AISStream API key (leave blank to keep it)",
-          "local_mqtt_enabled": "Enable local AIS-catcher MQTT source",
-          "local_mqtt_topic": "AIS-catcher MQTT topic",
           "enable_map_entities": "Create map vessel entities",
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
@@ -75,9 +77,46 @@
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
-          "no_sources": "Enable AISStream or the local AIS-catcher MQTT source.",
+          "no_sources": "Enable AISStream, local AIS-catcher MQTT, or AISHub.",
           "invalid_mqtt_topic": "Enter a valid MQTT subscription topic.",
+          "invalid_aishub_credentials": "Enter an AISHub username/API key when the source is enabled.",
           "invalid_url": "Enter a valid HTTP or HTTPS URL."
+        }
+      },
+      "aisstream": {
+        "title": "AISStream source",
+        "description": "Use the AISStream cloud feed as an AIS data source.",
+        "data": {
+          "aisstream_enabled": "Enable AISStream source",
+          "api_key": "AISStream API key (leave blank to keep it)"
+        },
+        "error": {
+          "invalid_api_key": "Enter an AISStream API key.",
+          "no_sources": "Enable AISStream, local AIS-catcher MQTT, or AISHub."
+        }
+      },
+      "local_mqtt": {
+        "title": "Local AIS-catcher MQTT source",
+        "description": "Consume decoded JSON_FULL messages from the local AIS-catcher add-on through Home Assistant MQTT.",
+        "data": {
+          "local_mqtt_enabled": "Enable local AIS-catcher MQTT source",
+          "local_mqtt_topic": "AIS-catcher MQTT topic"
+        },
+        "error": {
+          "invalid_mqtt_topic": "Enter a valid MQTT subscription topic.",
+          "no_sources": "Enable AISStream, local AIS-catcher MQTT, or AISHub."
+        }
+      },
+      "aishub": {
+        "title": "AISHub source",
+        "description": "Poll recent AISHub positions for the configured tracking areas. AISHub access is contributor-only and limited to one request per minute.",
+        "data": {
+          "aishub_enabled": "Enable AISHub source",
+          "aishub_username": "AISHub username/API key (leave blank to keep it)"
+        },
+        "error": {
+          "invalid_aishub_credentials": "Enter an AISHub username/API key when the source is enabled.",
+          "no_sources": "Enable AISStream, local AIS-catcher MQTT, or AISHub."
         }
       },
       "areas": {

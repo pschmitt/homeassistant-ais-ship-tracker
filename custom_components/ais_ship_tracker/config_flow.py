@@ -22,8 +22,10 @@ from homeassistant.helpers.selector import (
 
 from .areas import area_form_defaults, area_from_form, configured_areas
 from .const import (
-    CONF_API_KEY,
     CONF_AISSTREAM_ENABLED,
+    CONF_AISHUB_ENABLED,
+    CONF_AISHUB_USERNAME,
+    CONF_API_KEY,
     CONF_AREA_COUNT,
     CONF_AREA_NAME,
     CONF_AREAS,
@@ -61,27 +63,11 @@ def _common_schema(
     *,
     api_key_required: bool,
     include_area_count: bool = True,
+    include_sources: bool = True,
 ) -> vol.Schema:
     """Return the shared, non-area integration settings schema."""
     defaults = defaults or {}
     schema: dict[Any, Any] = {
-        vol.Required(
-            CONF_AISSTREAM_ENABLED,
-            default=defaults.get(CONF_AISSTREAM_ENABLED, True),
-        ): BooleanSelector(),
-        (
-            vol.Required(CONF_API_KEY)
-            if api_key_required
-            else vol.Optional(CONF_API_KEY, default=defaults.get(CONF_API_KEY, ""))
-        ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-        vol.Required(
-            CONF_LOCAL_MQTT_ENABLED,
-            default=defaults.get(CONF_LOCAL_MQTT_ENABLED, True),
-        ): BooleanSelector(),
-        vol.Required(
-            CONF_LOCAL_MQTT_TOPIC,
-            default=defaults.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"),
-        ): TextSelector(),
         vol.Required(CONF_ENABLE_MAP_ENTITIES, default=True): BooleanSelector(),
         vol.Required(CONF_INCLUDE_CLASS_B, default=True): BooleanSelector(),
         vol.Optional(CONF_VESSEL_WATCHLIST, default=""): TextSelector(),
@@ -98,6 +84,38 @@ def _common_schema(
         ),
         vol.Required(CONF_CACHE_PHOTOS, default=False): BooleanSelector(),
     }
+    if include_sources:
+        schema.update(
+            {
+                vol.Required(
+                    CONF_AISSTREAM_ENABLED,
+                    default=defaults.get(CONF_AISSTREAM_ENABLED, True),
+                ): BooleanSelector(),
+                (
+                    vol.Required(CONF_API_KEY)
+                    if api_key_required
+                    else vol.Optional(
+                        CONF_API_KEY, default=defaults.get(CONF_API_KEY, "")
+                    )
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+                vol.Required(
+                    CONF_LOCAL_MQTT_ENABLED,
+                    default=defaults.get(CONF_LOCAL_MQTT_ENABLED, True),
+                ): BooleanSelector(),
+                vol.Required(
+                    CONF_LOCAL_MQTT_TOPIC,
+                    default=defaults.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"),
+                ): TextSelector(),
+                vol.Required(
+                    CONF_AISHUB_ENABLED,
+                    default=defaults.get(CONF_AISHUB_ENABLED, False),
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_AISHUB_USERNAME,
+                    default=defaults.get(CONF_AISHUB_USERNAME, ""),
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            }
+        )
     if include_area_count:
         schema[
             vol.Required(CONF_AREA_COUNT, default=defaults.get(CONF_AREA_COUNT, 1))
@@ -105,6 +123,56 @@ def _common_schema(
             NumberSelectorConfig(min=1, max=_MAX_AREAS, step=1, mode="slider")
         )
     return vol.Schema(schema)
+
+
+def _aisstream_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Return the AISStream source settings schema."""
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_AISSTREAM_ENABLED,
+                default=defaults.get(CONF_AISSTREAM_ENABLED, True),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_API_KEY, default=defaults.get(CONF_API_KEY, "")
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        }
+    )
+
+
+def _local_mqtt_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Return the local AIS-catcher MQTT source settings schema."""
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_LOCAL_MQTT_ENABLED,
+                default=defaults.get(CONF_LOCAL_MQTT_ENABLED, True),
+            ): BooleanSelector(),
+            vol.Required(
+                CONF_LOCAL_MQTT_TOPIC,
+                default=defaults.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"),
+            ): TextSelector(),
+        }
+    )
+
+
+def _aishub_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Return the AISHub source settings schema."""
+    defaults = defaults or {}
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_AISHUB_ENABLED,
+                default=defaults.get(CONF_AISHUB_ENABLED, False),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_AISHUB_USERNAME,
+                default=defaults.get(CONF_AISHUB_USERNAME, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        }
+    )
 
 
 def _zone_options(hass: Any, selected: str | None = None) -> list[dict[str, str]]:
@@ -149,13 +217,16 @@ def _validate_common_input(user_input: dict[str, Any]) -> str | None:
     api_key = str(user_input.get(CONF_API_KEY, "")).strip()
     aisstream_enabled = user_input.get(CONF_AISSTREAM_ENABLED, True)
     local_mqtt_enabled = user_input.get(CONF_LOCAL_MQTT_ENABLED, False)
-    if not aisstream_enabled and not local_mqtt_enabled:
+    aishub_enabled = user_input.get(CONF_AISHUB_ENABLED, False)
+    if not aisstream_enabled and not local_mqtt_enabled and not aishub_enabled:
         return "no_sources"
     if aisstream_enabled and (not api_key or set(api_key) == {"*"}):
         return "invalid_api_key"
     topic = str(user_input.get(CONF_LOCAL_MQTT_TOPIC, "")).strip()
     if local_mqtt_enabled and not _valid_mqtt_subscription(topic):
         return "invalid_mqtt_topic"
+    if aishub_enabled and not str(user_input.get(CONF_AISHUB_USERNAME, "")).strip():
+        return "invalid_aishub_credentials"
     if user_input.get(CONF_SEARXNG_URL) and not _valid_url(
         user_input[CONF_SEARXNG_URL]
     ):
@@ -186,13 +257,19 @@ def _validate_area(user_input: dict[str, Any], hass: Any) -> str | None:
     return None
 
 
-def _clean_common_input(user_input: dict[str, Any]) -> dict[str, Any]:
+def _clean_common_input(
+    user_input: dict[str, Any], *, include_sources: bool = True
+) -> dict[str, Any]:
     """Normalize common settings and remove blank optional secrets."""
     cleaned = dict(user_input)
     cleaned[CONF_SEARXNG_URL] = _normalize_url(cleaned.get(CONF_SEARXNG_URL, ""))
-    cleaned[CONF_LOCAL_MQTT_TOPIC] = str(
-        cleaned.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais")
-    ).strip()
+    if include_sources:
+        cleaned[CONF_LOCAL_MQTT_TOPIC] = str(
+            cleaned.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais")
+        ).strip()
+        cleaned[CONF_AISHUB_USERNAME] = str(
+            cleaned.get(CONF_AISHUB_USERNAME, "")
+        ).strip()
     if not cleaned.get(CONF_SEARXNG_PASSWORD):
         cleaned.pop(CONF_SEARXNG_PASSWORD, None)
     cleaned[CONF_VESSEL_WATCHLIST] = ",".join(
@@ -206,7 +283,12 @@ def _clean_common_input(user_input: dict[str, Any]) -> dict[str, Any]:
 # Kept as compatibility helpers for external tooling and old repair flows.
 def _data_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Return the options-compatible common settings schema."""
-    return _common_schema(defaults, api_key_required=False, include_area_count=False)
+    return _common_schema(
+        defaults,
+        api_key_required=False,
+        include_area_count=False,
+        include_sources=True,
+    )
 
 
 def _validate_input(user_input: dict[str, Any]) -> str | None:
@@ -325,39 +407,131 @@ class AisShipTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
         """Show the options-flow navigation menu."""
         self._initialize_pending()
         return self.async_show_menu(
-            step_id="init", menu_options=["general", "areas", "finish"]
+            step_id="init",
+            menu_options=[
+                "general",
+                "aisstream",
+                "local_mqtt",
+                "aishub",
+                "areas",
+                "finish",
+            ],
         )
 
     async def async_step_general(self, user_input: dict[str, Any] | None = None):
         """Manage settings shared by all tracking areas."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            user_input = _clean_common_input(user_input)
-            if not user_input.get(CONF_API_KEY):
-                user_input[CONF_API_KEY] = self._pending_settings.get(
-                    CONF_API_KEY, ""
-                )
-            if not user_input.get(CONF_SEARXNG_PASSWORD):
-                user_input.pop(CONF_SEARXNG_PASSWORD, None)
-                if self._pending_settings.get(CONF_SEARXNG_PASSWORD):
-                    user_input[CONF_SEARXNG_PASSWORD] = self._pending_settings[
-                        CONF_SEARXNG_PASSWORD
-                    ]
-            error = _validate_common_input(user_input)
+            candidate = {
+                **self._pending_settings,
+                **_clean_common_input(user_input, include_sources=False),
+            }
+            error = _validate_common_input(candidate)
             if error:
                 errors["base"] = error
             else:
-                self._pending_settings = user_input
+                self._pending_settings = candidate
                 return await self.async_step_init()
 
         suggested = dict(self._pending_settings)
+        suggested.pop(CONF_AISSTREAM_ENABLED, None)
         suggested.pop(CONF_API_KEY, None)
+        suggested.pop(CONF_LOCAL_MQTT_ENABLED, None)
+        suggested.pop(CONF_LOCAL_MQTT_TOPIC, None)
+        suggested.pop(CONF_AISHUB_ENABLED, None)
+        suggested.pop(CONF_AISHUB_USERNAME, None)
         suggested.pop(CONF_SEARXNG_PASSWORD, None)
         return self.async_show_form(
             step_id="general",
             data_schema=self.add_suggested_values_to_schema(
-                _common_schema(api_key_required=False, include_area_count=False),
+                _common_schema(
+                    api_key_required=False,
+                    include_area_count=False,
+                    include_sources=False,
+                ),
                 suggested,
+            ),
+            errors=errors,
+        )
+
+    async def async_step_aisstream(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Manage the AISStream source settings."""
+        self._initialize_pending()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            candidate = {**self._pending_settings, **user_input}
+            api_key = str(user_input.get(CONF_API_KEY, "")).strip()
+            candidate[CONF_API_KEY] = api_key or self._pending_settings.get(
+                CONF_API_KEY, ""
+            )
+            error = _validate_common_input(candidate)
+            if error:
+                errors["base"] = error
+            else:
+                self._pending_settings = candidate
+                return await self.async_step_init()
+        suggested = dict(self._pending_settings)
+        suggested.pop(CONF_API_KEY, None)
+        return self.async_show_form(
+            step_id="aisstream",
+            data_schema=self.add_suggested_values_to_schema(
+                _aisstream_schema(suggested), suggested
+            ),
+            errors=errors,
+        )
+
+    async def async_step_local_mqtt(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Manage the local AIS-catcher MQTT source settings."""
+        self._initialize_pending()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            candidate = {**self._pending_settings, **user_input}
+            candidate[CONF_LOCAL_MQTT_TOPIC] = str(
+                user_input.get(CONF_LOCAL_MQTT_TOPIC, "")
+            ).strip()
+            error = _validate_common_input(candidate)
+            if error:
+                errors["base"] = error
+            else:
+                self._pending_settings = candidate
+                return await self.async_step_init()
+        suggested = dict(self._pending_settings)
+        return self.async_show_form(
+            step_id="local_mqtt",
+            data_schema=self.add_suggested_values_to_schema(
+                _local_mqtt_schema(suggested), suggested
+            ),
+            errors=errors,
+        )
+
+    async def async_step_aishub(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Manage the AISHub source settings."""
+        self._initialize_pending()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            candidate = {**self._pending_settings, **user_input}
+            username = str(user_input.get(CONF_AISHUB_USERNAME, "")).strip()
+            candidate[CONF_AISHUB_USERNAME] = username or self._pending_settings.get(
+                CONF_AISHUB_USERNAME, ""
+            )
+            error = _validate_common_input(candidate)
+            if error:
+                errors["base"] = error
+            else:
+                self._pending_settings = candidate
+                return await self.async_step_init()
+        suggested = dict(self._pending_settings)
+        suggested.pop(CONF_AISHUB_USERNAME, None)
+        return self.async_show_form(
+            step_id="aishub",
+            data_schema=self.add_suggested_values_to_schema(
+                _aishub_schema(suggested), suggested
             ),
             errors=errors,
         )

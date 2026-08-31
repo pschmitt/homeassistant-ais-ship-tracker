@@ -19,16 +19,21 @@ from homeassistant.util import dt as dt_util
 
 from .areas import area_bounding_box, area_id, area_zone_location, configured_areas
 from .const import (CONF_AISSTREAM_ENABLED, CONF_API_KEY,
+                    CONF_AISHUB_ENABLED, CONF_AISHUB_USERNAME,
                     CONF_ENABLE_MAP_ENTITIES, CONF_INCLUDE_CLASS_B,
                     CONF_LOCAL_MQTT_ENABLED, CONF_LOCAL_MQTT_TOPIC,
                     CONF_MAP_TIMEOUT_MINUTES, CONF_MAX_MAP_ENTITIES,
                     CONF_VESSEL_WATCHLIST, DOMAIN, ISSUE_AIS_AUTHENTICATION,
                     ISSUE_AIS_CONNECTION)
 from .sources import (SOURCE_AISSTREAM, SOURCE_LOCAL_MQTT, AisObservation,
-                      parse_aiscatcher_message, parse_aisstream_message)
+                      SOURCE_AISHUB, parse_aiscatcher_message,
+                      parse_aishub_response, parse_aisstream_message)
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
+_AISHUB_URL = "https://data.aishub.net/ws.php"
+_AISHUB_POLL_INTERVAL = 65
+_AISHUB_POSITION_AGE_MINUTES = 5
 # Keep the Home Assistant Store version stable. The payload format migration is
 # handled below so older installs do not require a Store migration callback.
 _STORE_VERSION = 1
@@ -105,6 +110,7 @@ class AisTrackerCoordinator:
         self.connection_status = "Disconnected"
         self.connection_error: str | None = None
         self.source_status: dict[str, str] = {}
+        self.source_errors: dict[str, str] = {}
         self.source_last_message: dict[str, str] = {}
         self._seen_mmsis_by_area: dict[str, set[str]] = {}
         self._listeners: list[Callable[[], None]] = []
@@ -112,6 +118,7 @@ class AisTrackerCoordinator:
             hass, _STORE_VERSION, f"{DOMAIN}.last_passing_ship_{entry_id}"
         )
         self._task: asyncio.Task[None] | None = None
+        self._aishub_task: asyncio.Task[None] | None = None
         self._mqtt_unsub: Callable[[], None] | None = None
         self._stopping = False
 
@@ -157,6 +164,16 @@ class AisTrackerCoordinator:
     def local_mqtt_topic(self) -> str:
         """Return the MQTT subscription topic."""
         return str(self.settings.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"))
+
+    @property
+    def aishub_enabled(self) -> bool:
+        """Return whether the AISHub source is enabled."""
+        return bool(self.settings.get(CONF_AISHUB_ENABLED, False))
+
+    @property
+    def aishub_username(self) -> str:
+        """Return the configured AISHub username/API credential."""
+        return str(self.settings.get(CONF_AISHUB_USERNAME, "")).strip()
 
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
@@ -227,6 +244,10 @@ class AisTrackerCoordinator:
             self._task = self.hass.async_create_task(
                 self._run(), name=f"{DOMAIN}_{self.entry_id}"
             )
+        if self.aishub_enabled and self.aishub_username:
+            self._aishub_task = self.hass.async_create_task(
+                self._run_aishub(), name=f"{DOMAIN}_{self.entry_id}_aishub"
+            )
 
     async def async_restart(self) -> None:
         """Restart the subscription after a source zone changes."""
@@ -239,14 +260,16 @@ class AisTrackerCoordinator:
         if self._mqtt_unsub is not None:
             self._mqtt_unsub()
             self._mqtt_unsub = None
-        if self._task is None:
-            return
-        self._task.cancel()
-        try:
-            await self._task
-        except asyncio.CancelledError:
-            pass
-        self._task = None
+        for task_name in ("_task", "_aishub_task"):
+            task = getattr(self, task_name)
+            if task is None:
+                continue
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            setattr(self, task_name, None)
 
     async def _async_start_mqtt(self) -> None:
         """Subscribe to the local AIS-catcher MQTT output."""
@@ -280,6 +303,64 @@ class AisTrackerCoordinator:
             _LOGGER.debug("Ignoring invalid AIS-catcher MQTT payload")
             return
         self._handle_observation(observation)
+
+    async def _run_aishub(self) -> None:
+        """Poll the AISHub API without exceeding its published rate limit."""
+        while not self._stopping:
+            try:
+                observations = await self._fetch_aishub()
+                self._set_source_status(SOURCE_AISHUB, "Connected")
+                for observation in observations:
+                    self._handle_observation(observation)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:  # noqa: BLE001
+                message = str(error)
+                self._set_source_status(SOURCE_AISHUB, "Unavailable", message)
+                _LOGGER.warning("AISHub source unavailable: %s", message)
+            await asyncio.sleep(_AISHUB_POLL_INTERVAL)
+
+    async def _fetch_aishub(self) -> list[AisObservation]:
+        """Fetch recent AISHub positions for the configured tracking areas."""
+        bounding_box = self._aishub_bounding_box()
+        if bounding_box is None:
+            raise RuntimeError("no valid tracking area is available")
+        south, west, north, east = bounding_box
+        params = {
+            "username": self.aishub_username,
+            "format": "1",
+            "output": "json",
+            "compress": "0",
+            "latmin": f"{south:.6f}",
+            "latmax": f"{north:.6f}",
+            "lonmin": f"{west:.6f}",
+            "lonmax": f"{east:.6f}",
+            "interval": str(_AISHUB_POSITION_AGE_MINUTES),
+        }
+        async with self.session.get(_AISHUB_URL, params=params, timeout=30) as response:
+            if response.status != 200:
+                raise RuntimeError(f"HTTP {response.status}")
+            payload = await response.json(content_type=None)
+        observations = parse_aishub_response(payload)
+        if observations is None:
+            raise RuntimeError("invalid or rejected API response")
+        return observations
+
+    def _aishub_bounding_box(self) -> tuple[float, float, float, float] | None:
+        """Return one bounding box covering all configured tracking areas."""
+        boxes = [
+            box
+            for area in configured_areas(self.settings)
+            if (box := area_bounding_box(self.hass, area)) is not None
+        ]
+        if not boxes:
+            return None
+        return (
+            min(box[0][0] for box in boxes),
+            min(box[0][1] for box in boxes),
+            max(box[1][0] for box in boxes),
+            max(box[1][1] for box in boxes),
+        )
 
     async def _run(self) -> None:
         """Maintain a reconnecting AISStream websocket."""
@@ -379,6 +460,7 @@ class AisTrackerCoordinator:
     def _handle_observation(self, observation: AisObservation) -> None:
         """Merge a normalized observation from any configured source."""
         self.source_status[observation.source] = "Connected"
+        self.source_errors.pop(observation.source, None)
         self.source_last_message[observation.source] = (
             observation.received_at.isoformat()
         )
@@ -430,6 +512,13 @@ class AisTrackerCoordinator:
         ):
             seen_mmsis = self._seen_mmsis_by_area.setdefault(tracking_area_id, set())
             if observation.mmsi in seen_mmsis:
+                if (
+                    observation.source == SOURCE_LOCAL_MQTT
+                    and self.last_ships.get(tracking_area_id, {}).get("source")
+                    != SOURCE_LOCAL_MQTT
+                ):
+                    self.last_ships[tracking_area_id] = public_ship
+                    stored = True
                 continue
             seen_mmsis.add(observation.mmsi)
             self.last_ships[tracking_area_id] = public_ship
@@ -614,6 +703,20 @@ class AisTrackerCoordinator:
     def _set_status(self, status: str) -> None:
         self.connection_status = status
         self.source_status[SOURCE_AISSTREAM] = status
+        if status == "Connected":
+            self.source_errors.pop(SOURCE_AISSTREAM, None)
+        self._notify()
+
+    @callback
+    def _set_source_status(
+        self, source: str, status: str, error: str | None = None
+    ) -> None:
+        """Update a source status and notify diagnostic entities."""
+        self.source_status[source] = status
+        if error:
+            self.source_errors[source] = error
+        else:
+            self.source_errors.pop(source, None)
         self._notify()
 
     def _create_authentication_issue(self) -> None:

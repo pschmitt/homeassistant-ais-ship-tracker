@@ -43,6 +43,14 @@ the topic configured in the AIS-catcher app (the default is
 `ais-catcher/ais`). The integration subscribes through Home Assistant's MQTT
 integration; it does not connect to Mosquitto directly.
 
+AISHub is an optional remote source. Enable it under **AISHub source** and
+enter the AISHub username/API credential once your contributor account has
+been approved. The integration requests only recent positions within the
+combined tracking-area bounding box and polls every 65 seconds, respecting
+AISHub's one-request-per-minute limit. AISHub access is not available before
+the station has been accepted as a contributor; see [AISHub's join
+requirements](https://www.aishub.net/join-us).
+
 Each tracking area
 uses an existing Home Assistant `zone.*` entity as its source. The zone's
 latitude, longitude, and radius are read directly from Home Assistant; the
@@ -154,11 +162,17 @@ vessel during the current runtime. A vessel entering an area produces one
 `ship_updated` event even if the same vessel is subsequently observed through
 another source.
 
-The AIS-catcher app's AISHub and aiscatcher.org settings are upload/sharing
-outputs, not inbound sources for this integration. AISHub's separate
-aggregated HTTP API is rate-limited and requires contributor access, so it is
-not polled by this release. The local receiver remains the authoritative source
-for confirming that a vessel was actually received at home.
+AISHub positions are marked as `aishub`; they represent the remote aggregate
+and are therefore not proof that the local antenna heard a vessel. The local
+receiver remains the authoritative source for confirming a ship was actually
+received at home. The AIS-catcher app's AISHub UDP output remains available for
+sharing this station's raw feed separately from the integration's optional
+AISHub inbound source.
+
+aiscatcher.org currently provides the supported upstream community-sharing
+path: enable the add-on's **AIS-catcher community sharing** with the UUID from
+the site. The site's feeder API is advertised as coming soon, so this release
+does not scrape its live map or treat community-map data as local reception.
 
 ## License and branding
 

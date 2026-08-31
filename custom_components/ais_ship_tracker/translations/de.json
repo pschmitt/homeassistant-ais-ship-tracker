@@ -5,7 +5,12 @@
         "title": "AIS-Schiffsverfolgung",
         "description": "Verfolge Schiffe in einem oder mehreren Gebieten und suche optional über SearXNG nach Fotos.",
         "data": {
+          "aisstream_enabled": "AISStream-Quelle aktivieren",
           "api_key": "AISStream-API-Schlüssel",
+          "local_mqtt_enabled": "Lokale AIS-catcher-MQTT-Quelle aktivieren",
+          "local_mqtt_topic": "AIS-catcher-MQTT-Thema",
+          "aishub_enabled": "AISHub-Quelle aktivieren",
+          "aishub_username": "AISHub-Benutzername/API-Schlüssel",
           "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
           "include_class_b": "Class-B-Transponder einschließen",
           "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
@@ -19,6 +24,9 @@
         },
         "error": {
           "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+          "no_sources": "Aktiviere AISStream, lokales AIS-catcher-MQTT oder AISHub.",
+          "invalid_mqtt_topic": "Gib ein gültiges MQTT-Abonnementthema ein.",
+          "invalid_aishub_credentials": "Gib bei aktivierter Quelle einen AISHub-Benutzernamen/API-Schlüssel ein.",
           "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein.",
           "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
           "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
@@ -46,6 +54,9 @@
         "description": "Wähle gemeinsame Einstellungen oder verwalte die Verfolgungsgebiete.",
         "menu_options": {
           "general": "Allgemeine Einstellungen",
+          "aisstream": "AISStream-Quelle",
+          "local_mqtt": "Lokale AIS-catcher-MQTT-Quelle",
+          "aishub": "AISHub-Quelle",
           "areas": "Verfolgungsgebiete verwalten",
           "finish": "Änderungen speichern"
         }
@@ -54,7 +65,6 @@
         "title": "Allgemeine AIS-Einstellungen",
         "description": "Einstellungen, die für alle Verfolgungsgebiete gelten.",
         "data": {
-          "api_key": "AISStream-API-Schlüssel (leer lassen, um ihn beizubehalten)",
           "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
           "include_class_b": "Class-B-Transponder einschließen",
           "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
@@ -67,7 +77,46 @@
         },
         "error": {
           "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+          "no_sources": "Aktiviere AISStream, lokales AIS-catcher-MQTT oder AISHub.",
+          "invalid_mqtt_topic": "Gib ein gültiges MQTT-Abonnementthema ein.",
+          "invalid_aishub_credentials": "Gib bei aktivierter Quelle einen AISHub-Benutzernamen/API-Schlüssel ein.",
           "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+        }
+      },
+      "aisstream": {
+        "title": "AISStream-Quelle",
+        "description": "Verwende den AISStream-Cloud-Feed als AIS-Datenquelle.",
+        "data": {
+          "aisstream_enabled": "AISStream-Quelle aktivieren",
+          "api_key": "AISStream-API-Schlüssel (leer lassen, um ihn beizubehalten)"
+        },
+        "error": {
+          "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+          "no_sources": "Aktiviere AISStream, lokales AIS-catcher-MQTT oder AISHub."
+        }
+      },
+      "local_mqtt": {
+        "title": "Lokale AIS-catcher-MQTT-Quelle",
+        "description": "Verarbeite dekodierte JSON_FULL-Nachrichten des lokalen AIS-catcher-Add-ons über Home Assistant MQTT.",
+        "data": {
+          "local_mqtt_enabled": "Lokale AIS-catcher-MQTT-Quelle aktivieren",
+          "local_mqtt_topic": "AIS-catcher-MQTT-Thema"
+        },
+        "error": {
+          "invalid_mqtt_topic": "Gib ein gültiges MQTT-Abonnementthema ein.",
+          "no_sources": "Aktiviere AISStream, lokales AIS-catcher-MQTT oder AISHub."
+        }
+      },
+      "aishub": {
+        "title": "AISHub-Quelle",
+        "description": "Rufe aktuelle AISHub-Positionen für die konfigurierten Verfolgungsgebiete ab. AISHub ist nur für Mitwirkende verfügbar und auf eine Anfrage pro Minute begrenzt.",
+        "data": {
+          "aishub_enabled": "AISHub-Quelle aktivieren",
+          "aishub_username": "AISHub-Benutzername/API-Schlüssel (leer lassen, um ihn beizubehalten)"
+        },
+        "error": {
+          "invalid_aishub_credentials": "Gib bei aktivierter Quelle einen AISHub-Benutzernamen/API-Schlüssel ein.",
+          "no_sources": "Aktiviere AISStream, lokales AIS-catcher-MQTT oder AISHub."
         }
       },
       "areas": {

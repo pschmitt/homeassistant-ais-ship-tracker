@@ -10,6 +10,7 @@ from typing import Any
 
 SOURCE_AISSTREAM = "aisstream"
 SOURCE_LOCAL_MQTT = "local_mqtt"
+SOURCE_AISHUB = "aishub"
 
 
 @dataclass(slots=True)
@@ -117,6 +118,46 @@ def parse_aisstream_message(message: dict[str, Any]) -> AisObservation | None:
     )
 
 
+def parse_aishub_response(payload: Any) -> list[AisObservation] | None:
+    """Parse one AISHub human-readable JSON response."""
+    if isinstance(payload, (str, bytes, bytearray)):
+        try:
+            payload = json.loads(payload)
+        except (TypeError, UnicodeDecodeError, json.JSONDecodeError):
+            return None
+    if not isinstance(payload, list) or len(payload) < 2:
+        return None
+    header, records = payload[0], payload[1]
+    if not isinstance(header, dict) or header.get("ERROR") is True:
+        return None
+    if not isinstance(records, list):
+        return None
+
+    observations = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        mmsi = _mmsi(record.get("MMSI"))
+        if mmsi is None:
+            continue
+        observations.append(
+            AisObservation(
+                source=SOURCE_AISHUB,
+                mmsi=mmsi,
+                latitude=_available_float(record.get("LATITUDE")),
+                longitude=_available_float(record.get("LONGITUDE")),
+                speed_knots=_available_float(record.get("SOG"), unavailable=102.4),
+                course=_available_float(record.get("COG"), unavailable=360),
+                heading=_available_int(record.get("HEADING"), unavailable=511),
+                ship_name=_text(record.get("NAME")),
+                navigational_status=_int(record.get("NAVSTAT")),
+                source_timestamp=_aishub_timestamp(record),
+                static_data=_static_data_from_aishub(record),
+            )
+        )
+    return observations
+
+
 def _static_data_from_aiscatcher(payload: dict[str, Any]) -> dict[str, Any]:
     """Extract optional static/voyage fields from JSON_FULL output."""
     values = {
@@ -125,6 +166,19 @@ def _static_data_from_aiscatcher(payload: dict[str, Any]) -> dict[str, Any]:
         "vessel_type": _text(payload.get("shiptype_text")),
         "call_sign": _text(payload.get("callsign")),
         "imo_number": _text(payload.get("imo")),
+    }
+    return {key: value for key, value in values.items() if value is not None}
+
+
+def _static_data_from_aishub(record: dict[str, Any]) -> dict[str, Any]:
+    """Extract optional static/voyage fields from an AISHub record."""
+    values = {
+        "destination": _text(record.get("DEST")),
+        "eta": _text(record.get("ETA")),
+        "vessel_type": _vessel_type(record.get("TYPE")),
+        "call_sign": _text(record.get("CALLSIGN")),
+        "imo_number": _text(record.get("IMO")),
+        "ship_length": _sum_dimensions(record.get("A"), record.get("B")),
     }
     return {key: value for key, value in values.items() if value is not None}
 
@@ -160,6 +214,28 @@ def _aiscatcher_timestamp(payload: dict[str, Any]) -> datetime | None:
         return None
 
 
+def _aishub_timestamp(record: dict[str, Any]) -> datetime | None:
+    """Return the AISHub position timestamp in UTC."""
+    value = record.get("TIME") or record.get("TSTAMP")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return datetime.fromtimestamp(value, tz=UTC)
+        except (OverflowError, OSError, ValueError):
+            return None
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromtimestamp(float(value), tz=UTC)
+    except (ValueError, OverflowError, OSError):
+        pass
+    for pattern in ("%Y-%m-%d %H:%M:%S GMT", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return datetime.strptime(value, pattern).replace(tzinfo=UTC)
+        except ValueError:
+            continue
+    return None
+
+
 def _mmsi(value: Any) -> str | None:
     """Normalize an MMSI value without accepting malformed identifiers."""
     if isinstance(value, bool):
@@ -189,6 +265,14 @@ def _float(value: Any) -> float | None:
         return None
 
 
+def _available_float(value: Any, *, unavailable: float | None = None) -> float | None:
+    """Parse a float while mapping an AIS unavailable sentinel to None."""
+    parsed = _float(value)
+    if parsed is None or parsed == unavailable:
+        return None
+    return parsed
+
+
 def _int(value: Any) -> int | None:
     if isinstance(value, bool) or value is None:
         return None
@@ -196,6 +280,14 @@ def _int(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _available_int(value: Any, *, unavailable: int | None = None) -> int | None:
+    """Parse an integer while mapping an AIS unavailable sentinel to None."""
+    parsed = _int(value)
+    if parsed is None or parsed == unavailable:
+        return None
+    return parsed
 
 
 def _nmea(value: Any) -> tuple[str, ...]:
