@@ -23,6 +23,7 @@ from homeassistant.helpers.selector import (
 from .areas import area_form_defaults, area_from_form, configured_areas
 from .const import (
     CONF_API_KEY,
+    CONF_AISSTREAM_ENABLED,
     CONF_AREA_COUNT,
     CONF_AREA_NAME,
     CONF_AREAS,
@@ -31,6 +32,8 @@ from .const import (
     CONF_INCLUDE_CLASS_B,
     CONF_MAP_TIMEOUT_MINUTES,
     CONF_MAX_MAP_ENTITIES,
+    CONF_LOCAL_MQTT_ENABLED,
+    CONF_LOCAL_MQTT_TOPIC,
     CONF_SEARXNG_PASSWORD,
     CONF_SEARXNG_URL,
     CONF_SEARXNG_USERNAME,
@@ -62,11 +65,23 @@ def _common_schema(
     """Return the shared, non-area integration settings schema."""
     defaults = defaults or {}
     schema: dict[Any, Any] = {
+        vol.Required(
+            CONF_AISSTREAM_ENABLED,
+            default=defaults.get(CONF_AISSTREAM_ENABLED, True),
+        ): BooleanSelector(),
         (
             vol.Required(CONF_API_KEY)
             if api_key_required
-            else vol.Optional(CONF_API_KEY)
+            else vol.Optional(CONF_API_KEY, default=defaults.get(CONF_API_KEY, ""))
         ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        vol.Required(
+            CONF_LOCAL_MQTT_ENABLED,
+            default=defaults.get(CONF_LOCAL_MQTT_ENABLED, True),
+        ): BooleanSelector(),
+        vol.Required(
+            CONF_LOCAL_MQTT_TOPIC,
+            default=defaults.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"),
+        ): TextSelector(),
         vol.Required(CONF_ENABLE_MAP_ENTITIES, default=True): BooleanSelector(),
         vol.Required(CONF_INCLUDE_CLASS_B, default=True): BooleanSelector(),
         vol.Optional(CONF_VESSEL_WATCHLIST, default=""): TextSelector(),
@@ -132,13 +147,33 @@ def _area_schema(
 def _validate_common_input(user_input: dict[str, Any]) -> str | None:
     """Validate settings that selectors cannot express."""
     api_key = str(user_input.get(CONF_API_KEY, "")).strip()
-    if not api_key or set(api_key) == {"*"}:
+    aisstream_enabled = user_input.get(CONF_AISSTREAM_ENABLED, True)
+    local_mqtt_enabled = user_input.get(CONF_LOCAL_MQTT_ENABLED, False)
+    if not aisstream_enabled and not local_mqtt_enabled:
+        return "no_sources"
+    if aisstream_enabled and (not api_key or set(api_key) == {"*"}):
         return "invalid_api_key"
+    topic = str(user_input.get(CONF_LOCAL_MQTT_TOPIC, "")).strip()
+    if local_mqtt_enabled and not _valid_mqtt_subscription(topic):
+        return "invalid_mqtt_topic"
     if user_input.get(CONF_SEARXNG_URL) and not _valid_url(
         user_input[CONF_SEARXNG_URL]
     ):
         return "invalid_url"
     return None
+
+
+def _valid_mqtt_subscription(topic: str) -> bool:
+    """Validate an MQTT subscription topic, including wildcard rules."""
+    if not topic or topic.startswith("/") or "//" in topic:
+        return False
+    levels = topic.split("/")
+    for index, level in enumerate(levels):
+        if "#" in level and (level != "#" or index != len(levels) - 1):
+            return False
+        if "+" in level and level != "+":
+            return False
+    return True
 
 
 def _validate_area(user_input: dict[str, Any], hass: Any) -> str | None:
@@ -155,6 +190,9 @@ def _clean_common_input(user_input: dict[str, Any]) -> dict[str, Any]:
     """Normalize common settings and remove blank optional secrets."""
     cleaned = dict(user_input)
     cleaned[CONF_SEARXNG_URL] = _normalize_url(cleaned.get(CONF_SEARXNG_URL, ""))
+    cleaned[CONF_LOCAL_MQTT_TOPIC] = str(
+        cleaned.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais")
+    ).strip()
     if not cleaned.get(CONF_SEARXNG_PASSWORD):
         cleaned.pop(CONF_SEARXNG_PASSWORD, None)
     cleaned[CONF_VESSEL_WATCHLIST] = ",".join(
@@ -254,7 +292,7 @@ class AisShipTrackerConfigFlow(
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_common_schema({CONF_AREA_COUNT: 1}, api_key_required=True),
+            data_schema=_common_schema({CONF_AREA_COUNT: 1}, api_key_required=False),
             errors=errors,
         )
 

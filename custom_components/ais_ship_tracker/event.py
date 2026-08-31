@@ -123,6 +123,8 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                     "spotted_time": ship.get("spotted_time"),
                     "area_id": self.area_id,
                     "area_name": self.area_name,
+                    "source": ship.get("source"),
+                    "sources_seen": ship.get("sources_seen", []),
                     "vessel_finder_url": vessel_finder_url(mmsi),
                     "marine_traffic_ship_id": marine_ship_id,
                     "marinetraffic_url": marine_traffic_url(marine_ship_id),

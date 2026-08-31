@@ -6,6 +6,9 @@ DOMAIN = "ais_ship_tracker"
 PLATFORMS = ["sensor", "event", "camera"]
 
 CONF_API_KEY = "api_key"
+CONF_AISSTREAM_ENABLED = "aisstream_enabled"
+CONF_LOCAL_MQTT_ENABLED = "local_mqtt_enabled"
+CONF_LOCAL_MQTT_TOPIC = "local_mqtt_topic"
 CONF_AREAS = "areas"
 CONF_AREA_NAME = "area_name"
 CONF_AREA_COUNT = "area_count"

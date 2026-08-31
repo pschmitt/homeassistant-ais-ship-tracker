@@ -5,7 +5,10 @@
         "title": "AIS Ship Tracker",
         "description": "Track vessels in one or more areas and optionally search SearXNG for photos.",
         "data": {
+          "aisstream_enabled": "Enable AISStream source",
           "api_key": "AISStream API key",
+          "local_mqtt_enabled": "Enable local AIS-catcher MQTT source",
+          "local_mqtt_topic": "AIS-catcher MQTT topic",
           "enable_map_entities": "Create map vessel entities",
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
@@ -19,6 +22,8 @@
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
+          "no_sources": "Enable AISStream or the local AIS-catcher MQTT source.",
+          "invalid_mqtt_topic": "Enter a valid MQTT subscription topic.",
           "invalid_url": "Enter a valid HTTP or HTTPS URL.",
           "invalid_area_name": "Enter a name for this tracking area.",
           "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
@@ -54,7 +59,10 @@
         "title": "General AIS settings",
         "description": "Settings shared by all tracking areas.",
         "data": {
+          "aisstream_enabled": "Enable AISStream source",
           "api_key": "AISStream API key (leave blank to keep it)",
+          "local_mqtt_enabled": "Enable local AIS-catcher MQTT source",
+          "local_mqtt_topic": "AIS-catcher MQTT topic",
           "enable_map_entities": "Create map vessel entities",
           "include_class_b": "Include Class B transponders",
           "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
@@ -67,6 +75,8 @@
         },
         "error": {
           "invalid_api_key": "Enter an AISStream API key.",
+          "no_sources": "Enable AISStream or the local AIS-catcher MQTT source.",
+          "invalid_mqtt_topic": "Enter a valid MQTT subscription topic.",
           "invalid_url": "Enter a valid HTTP or HTTPS URL."
         }
       },

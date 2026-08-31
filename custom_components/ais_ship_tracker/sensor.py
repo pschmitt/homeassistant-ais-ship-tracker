@@ -128,7 +128,7 @@ async def _async_remove_map_entity(
 
 
 class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
-    """Expose the last vessel detected by AISStream."""
+    """Expose the last vessel detected by a configured AIS source."""
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:ferry"
@@ -176,7 +176,7 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
 
 
 class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
-    """Expose the AISStream connection state."""
+    """Expose the configured AIS source connection state."""
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:lan-connect"
@@ -193,12 +193,18 @@ class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         """Return the current connection state."""
+        if not self.coordinator.aisstream_enabled:
+            return self.coordinator.source_status.get("local_mqtt", "Disconnected")
         return self.coordinator.connection_status
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return connection diagnostics."""
-        return {"error": self.coordinator.connection_error}
+        return {
+            "error": self.coordinator.connection_error,
+            "sources": dict(self.coordinator.source_status),
+            "last_message": dict(self.coordinator.source_last_message),
+        }
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""

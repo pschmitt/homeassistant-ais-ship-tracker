@@ -1,9 +1,10 @@
 # AIS Ship Tracker for Home Assistant
 
 AIS Ship Tracker is a Home Assistant custom integration for monitoring vessels
-inside one or more configurable geographic areas using the live
-[AISStream.io](https://aisstream.io) WebSocket service. It runs entirely as a
-Home Assistant integration; no Supervisor add-on or separate daemon is needed.
+inside one or more configurable geographic areas. It can combine the live
+[AISStream.io](https://aisstream.io) WebSocket service with locally received
+AIS-catcher messages from Home Assistant MQTT. It runs entirely as a Home
+Assistant integration; no additional daemon is needed.
 
 ## Features
 
@@ -18,6 +19,8 @@ Home Assistant integration; no Supervisor add-on or separate daemon is needed.
 - Config flow and options flow for one shared API key, multiple named tracking
 areas, filters, map retention, and optional photo lookup and caching.
 - Repairs for AISStream authentication/subscription and SearXNG configuration failures.
+- Source-aware vessel data: observations record their source, and duplicate
+  reports from multiple sources are merged by MMSI.
 - Diagnostics with credentials redacted.
 
 ## Installation
@@ -33,7 +36,14 @@ Restart Home Assistant and add **AIS Ship Tracker** from
 
 ## Configuration
 
-Create an API key at [AISStream.io](https://aisstream.io). Each tracking area
+Create an API key at [AISStream.io](https://aisstream.io) if the AISStream
+source is enabled. The local AIS-catcher source can be used by itself. In the
+AIS Ship Tracker settings, enable **Local AIS-catcher MQTT source** and enter
+the topic configured in the AIS-catcher app (the default is
+`ais-catcher/ais`). The integration subscribes through Home Assistant's MQTT
+integration; it does not connect to Mosquitto directly.
+
+Each tracking area
 uses an existing Home Assistant `zone.*` entity as its source. The zone's
 latitude, longitude, and radius are read directly from Home Assistant; the
 integration converts that circular zone into the square south-west/north-east
@@ -126,6 +136,29 @@ the URL must use the form
 internal ID is retained with the last-ship data, so the link remains available
 after a restart. For example, the default `Home` area uses
 `sensor.ais_ship_tracker_home_last_passing_ship`.
+
+## Multiple AIS sources
+
+The integration normalizes AISStream and AIS-catcher MQTT messages into the
+same vessel model. Configure AIS-catcher MQTT output as `JSON_FULL`: it
+contains the decoded position fields required for area tracking. `JSON_NMEA`
+contains the raw NMEA sentence and common metadata but not decoded coordinates,
+so it cannot by itself create a passing-ship event. Malformed messages and
+payloads without a valid nine-digit MMSI are ignored. Position reports update
+the vessel and enter the configured area geofence. Static/voyage reports are
+retained and merged with later position reports.
+
+The `source` attribute identifies the most recent source (`aisstream` or
+`local_mqtt`), while `sources_seen` lists all sources that have reported the
+vessel during the current runtime. A vessel entering an area produces one
+`ship_updated` event even if the same vessel is subsequently observed through
+another source.
+
+The AIS-catcher app's AISHub and aiscatcher.org settings are upload/sharing
+outputs, not inbound sources for this integration. AISHub's separate
+aggregated HTTP API is rate-limited and requires contributor access, so it is
+not polled by this release. The local receiver remains the authoritative source
+for confirming that a vessel was actually received at home.
 
 ## License and branding
 

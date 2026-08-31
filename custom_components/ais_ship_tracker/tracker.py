@@ -1,4 +1,4 @@
-"""Native AISStream collector for AIS Ship Tracker."""
+"""Multi-source AIS collector for AIS Ship Tracker."""
 
 from __future__ import annotations
 
@@ -11,16 +11,21 @@ from math import cos, radians, sqrt
 from typing import Any
 
 from aiohttp import WSMsgType
+from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .areas import area_bounding_box, area_id, area_zone_location, configured_areas
-from .const import (CONF_API_KEY, CONF_ENABLE_MAP_ENTITIES,
-                    CONF_INCLUDE_CLASS_B, CONF_MAP_TIMEOUT_MINUTES,
-                    CONF_MAX_MAP_ENTITIES, CONF_VESSEL_WATCHLIST, DOMAIN,
-                    ISSUE_AIS_AUTHENTICATION, ISSUE_AIS_CONNECTION)
+from .const import (CONF_AISSTREAM_ENABLED, CONF_API_KEY,
+                    CONF_ENABLE_MAP_ENTITIES, CONF_INCLUDE_CLASS_B,
+                    CONF_LOCAL_MQTT_ENABLED, CONF_LOCAL_MQTT_TOPIC,
+                    CONF_MAP_TIMEOUT_MINUTES, CONF_MAX_MAP_ENTITIES,
+                    CONF_VESSEL_WATCHLIST, DOMAIN, ISSUE_AIS_AUTHENTICATION,
+                    ISSUE_AIS_CONNECTION)
+from .sources import (SOURCE_AISSTREAM, SOURCE_LOCAL_MQTT, AisObservation,
+                      parse_aiscatcher_message, parse_aisstream_message)
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
@@ -84,7 +89,7 @@ def _vessel_type(type_number: Any) -> str | None:
 
 
 class AisTrackerCoordinator:
-    """Own the AISStream connection and the current vessel data."""
+    """Own AIS source connections and the current vessel data."""
 
     def __init__(
         self, hass: HomeAssistant, session: Any, settings: dict[str, Any], entry_id: str
@@ -99,12 +104,15 @@ class AisTrackerCoordinator:
         self._static_ship_data: dict[str, dict[str, Any]] = {}
         self.connection_status = "Disconnected"
         self.connection_error: str | None = None
+        self.source_status: dict[str, str] = {}
+        self.source_last_message: dict[str, str] = {}
         self._seen_mmsis_by_area: dict[str, set[str]] = {}
         self._listeners: list[Callable[[], None]] = []
         self._store = Store(
             hass, _STORE_VERSION, f"{DOMAIN}.last_passing_ship_{entry_id}"
         )
         self._task: asyncio.Task[None] | None = None
+        self._mqtt_unsub: Callable[[], None] | None = None
         self._stopping = False
 
     @property
@@ -135,6 +143,21 @@ class AisTrackerCoordinator:
         """Return the maximum number of active vessel entities to expose."""
         return max(0, int(self.settings.get(CONF_MAX_MAP_ENTITIES, 10)))
 
+    @property
+    def aisstream_enabled(self) -> bool:
+        """Return whether the AISStream source is enabled."""
+        return bool(self.settings.get(CONF_AISSTREAM_ENABLED, True))
+
+    @property
+    def local_mqtt_enabled(self) -> bool:
+        """Return whether the local AIS-catcher MQTT source is enabled."""
+        return bool(self.settings.get(CONF_LOCAL_MQTT_ENABLED, False))
+
+    @property
+    def local_mqtt_topic(self) -> str:
+        """Return the MQTT subscription topic."""
+        return str(self.settings.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"))
+
     @callback
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
         """Subscribe to coordinator updates."""
@@ -148,7 +171,7 @@ class AisTrackerCoordinator:
         return remove_listener
 
     async def async_start(self) -> None:
-        """Restore state and start the AISStream task."""
+        """Restore state and start all configured AIS sources."""
         self._stopping = False
         stored = await self._store.async_load()
         migrated = False
@@ -198,9 +221,12 @@ class AisTrackerCoordinator:
         if migrated:
             await self._store.async_save(self._stored_data())
         self._purge_old_sightings()
-        self._task = self.hass.async_create_task(
-            self._run(), name=f"{DOMAIN}_{self.entry_id}"
-        )
+        if self.local_mqtt_enabled:
+            await self._async_start_mqtt()
+        if self.aisstream_enabled and self.settings.get(CONF_API_KEY):
+            self._task = self.hass.async_create_task(
+                self._run(), name=f"{DOMAIN}_{self.entry_id}"
+            )
 
     async def async_restart(self) -> None:
         """Restart the subscription after a source zone changes."""
@@ -208,8 +234,11 @@ class AisTrackerCoordinator:
         await self.async_start()
 
     async def async_stop(self) -> None:
-        """Stop the AISStream task."""
+        """Stop all source connections."""
         self._stopping = True
+        if self._mqtt_unsub is not None:
+            self._mqtt_unsub()
+            self._mqtt_unsub = None
         if self._task is None:
             return
         self._task.cancel()
@@ -218,6 +247,39 @@ class AisTrackerCoordinator:
         except asyncio.CancelledError:
             pass
         self._task = None
+
+    async def _async_start_mqtt(self) -> None:
+        """Subscribe to the local AIS-catcher MQTT output."""
+        self.source_status[SOURCE_LOCAL_MQTT] = "Connecting"
+        try:
+            available = await asyncio.wait_for(
+                mqtt.async_wait_for_mqtt_client(self.hass), timeout=30
+            )
+            if not available:
+                raise RuntimeError("the Home Assistant MQTT client is unavailable")
+            self._mqtt_unsub = await mqtt.async_subscribe(
+                self.hass,
+                self.local_mqtt_topic,
+                self._mqtt_message_received,
+                qos=0,
+            )
+        except Exception as error:  # noqa: BLE001
+            self.source_status[SOURCE_LOCAL_MQTT] = "Unavailable"
+            _LOGGER.warning("Local AIS-catcher MQTT source unavailable: %s", error)
+            return
+        self.source_status[SOURCE_LOCAL_MQTT] = "Connected"
+        _LOGGER.info(
+            "Subscribed to local AIS-catcher MQTT topic %s", self.local_mqtt_topic
+        )
+
+    @callback
+    def _mqtt_message_received(self, message: Any) -> None:
+        """Handle one message from the local AIS-catcher MQTT source."""
+        observation = parse_aiscatcher_message(message.payload)
+        if observation is None:
+            _LOGGER.debug("Ignoring invalid AIS-catcher MQTT payload")
+            return
+        self._handle_observation(observation)
 
     async def _run(self) -> None:
         """Maintain a reconnecting AISStream websocket."""
@@ -310,58 +372,72 @@ class AisTrackerCoordinator:
             _LOGGER.error("AISStream error: %s", error)
             return
 
-        message_type = message.get("MessageType")
-        metadata = message.get("MetaData") or {}
-        mmsi = str(metadata.get("MMSI") or "")
-        if not mmsi:
-            return
-        if message_type == "ShipStaticData":
-            self._handle_static_data(mmsi, message)
-            return
-        if message_type not in {
-            "PositionReport",
-            "StandardClassBPositionReport",
-            "ExtendedClassBPositionReport",
-        }:
+        observation = parse_aisstream_message(message)
+        if observation is not None:
+            self._handle_observation(observation)
+
+    def _handle_observation(self, observation: AisObservation) -> None:
+        """Merge a normalized observation from any configured source."""
+        self.source_status[observation.source] = "Connected"
+        self.source_last_message[observation.source] = (
+            observation.received_at.isoformat()
+        )
+        if observation.static_data or observation.ship_name:
+            self._handle_static_data(observation)
+        if observation.latitude is None or observation.longitude is None:
             return
 
-        report = (message.get("Message") or {}).get(message_type) or {}
-        name = str(metadata.get("ShipName") or "Unknown Ship").strip() or "Unknown Ship"
-        nav_status = report.get("NavigationalStatus")
-        now = datetime.now(UTC)
-        ship = {
-            "ship_name": name,
-            "mmsi": mmsi,
-            "latitude": report.get("Latitude"),
-            "longitude": report.get("Longitude"),
-            "speed_knots": report.get("Sog"),
-            "course": report.get("Cog"),
-            "heading": report.get("TrueHeading"),
-            "navigational_status": _NAV_STATUS.get(nav_status, "Not defined"),
-            "vessel_class": (
-                "Class B" if message_type != "PositionReport" else "Class A"
-            ),
-            "icon": _NAV_ICONS.get(nav_status, "mdi:ferry"),
-            "spotted_time": now.isoformat(),
-            "_last_seen": now,
-        }
-        ship.update(self.ships.get(mmsi, {}))
-        ship.update(self._static_ship_data.get(mmsi, {}))
-        ship["_last_seen"] = now
-        self.ships[mmsi] = ship
+        now = observation.received_at
+        old_ship = self.ships.get(observation.mmsi, {})
+        nav_status = observation.navigational_status
+        ship = dict(old_ship)
+        ship.update(
+            {
+                "ship_name": observation.ship_name
+                or old_ship.get("ship_name")
+                or "Unknown Ship",
+                "mmsi": observation.mmsi,
+                "latitude": observation.latitude,
+                "longitude": observation.longitude,
+                "speed_knots": observation.speed_knots,
+                "course": observation.course,
+                "heading": observation.heading,
+                "navigational_status": _NAV_STATUS.get(
+                    nav_status, old_ship.get("navigational_status", "Not defined")
+                ),
+                "vessel_class": observation.vessel_class
+                or old_ship.get("vessel_class", "Unknown"),
+                "icon": _NAV_ICONS.get(
+                    nav_status, old_ship.get("icon", "mdi:ferry")
+                ),
+                "source": observation.source,
+                "sources_seen": sorted(
+                    set(old_ship.get("sources_seen", [])) | {observation.source}
+                ),
+                "spotted_time": now.isoformat(),
+                "_last_seen": now,
+            }
+        )
+        if observation.raw_nmea:
+            ship["raw_nmea"] = list(observation.raw_nmea)
+        ship.update(self._static_ship_data.get(observation.mmsi, {}))
+        self.ships[observation.mmsi] = ship
         self._trim_map_ships()
         stored = False
         public_ship = self._public_ship(ship)
         for tracking_area_id in self._area_ids_for_position(
-            report.get("Latitude"), report.get("Longitude")
+            observation.latitude, observation.longitude
         ):
             seen_mmsis = self._seen_mmsis_by_area.setdefault(tracking_area_id, set())
-            if mmsi in seen_mmsis:
+            if observation.mmsi in seen_mmsis:
                 continue
-            seen_mmsis.add(mmsi)
+            seen_mmsis.add(observation.mmsi)
             self.last_ships[tracking_area_id] = public_ship
             self.ship_sightings.setdefault(tracking_area_id, []).append(
-                {"mmsi": mmsi, "spotted_time": public_ship["spotted_time"]}
+                {
+                    "mmsi": observation.mmsi,
+                    "spotted_time": public_ship["spotted_time"],
+                }
             )
             stored = True
         if stored:
@@ -472,30 +548,15 @@ class AisTrackerCoordinator:
         for mmsi in oldest:
             self.ships.pop(mmsi, None)
 
-    def _handle_static_data(self, mmsi: str, message: dict[str, Any]) -> None:
+    def _handle_static_data(self, observation: AisObservation) -> None:
         """Merge static vessel metadata into the tracked vessel."""
-        static = (message.get("Message") or {}).get("ShipStaticData") or {}
-        eta_data = static.get("Eta") or {}
-        eta = None
-        if eta_data.get("Month") and eta_data.get("Day"):
-            eta = f"{eta_data['Day']:02d}/{eta_data['Month']:02d} {eta_data.get('Hour', 0):02d}:{eta_data.get('Minute', 0):02d} UTC"
-        dimensions = static.get("Dimension") or {}
-        static_values = {
-            "destination": str(static.get("Destination") or "").strip() or None,
-            "eta": eta,
-            "ship_length": (
-                dimensions.get("A", 0) + dimensions.get("B", 0)
-                if dimensions.get("A") is not None and dimensions.get("B") is not None
-                else None
-            ),
-            "imo_number": str(static["ImoNumber"]) if static.get("ImoNumber") else None,
-            "call_sign": str(static.get("CallSign") or "").strip() or None,
-            "vessel_type": _vessel_type(static.get("Type")),
-        }
-        self._static_ship_data.setdefault(mmsi, {}).update(
+        static_values = dict(observation.static_data)
+        if observation.ship_name:
+            static_values["ship_name"] = observation.ship_name
+        self._static_ship_data.setdefault(observation.mmsi, {}).update(
             {key: value for key, value in static_values.items() if value is not None}
         )
-        ship = self.ships.get(mmsi)
+        ship = self.ships.get(observation.mmsi)
         if ship is not None:
             ship.update(
                 {
@@ -507,7 +568,7 @@ class AisTrackerCoordinator:
             self._notify()
         updated = False
         for last_ship in self.last_ships.values():
-            if last_ship.get("mmsi") != mmsi:
+            if last_ship.get("mmsi") != observation.mmsi:
                 continue
             last_ship.update(
                 {
@@ -552,6 +613,7 @@ class AisTrackerCoordinator:
     @callback
     def _set_status(self, status: str) -> None:
         self.connection_status = status
+        self.source_status[SOURCE_AISSTREAM] = status
         self._notify()
 
     def _create_authentication_issue(self) -> None:
