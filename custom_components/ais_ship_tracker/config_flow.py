@@ -29,7 +29,6 @@ from .const import (
     CONF_AREA_COUNT,
     CONF_AREA_NAME,
     CONF_AREAS,
-    CONF_CACHE_PHOTOS,
     CONF_ENABLE_MAP_ENTITIES,
     CONF_INCLUDE_CLASS_B,
     CONF_MAP_TIMEOUT_MINUTES,
@@ -82,7 +81,6 @@ def _common_schema(
         vol.Optional(CONF_SEARXNG_PASSWORD): TextSelector(
             TextSelectorConfig(type=TextSelectorType.PASSWORD)
         ),
-        vol.Required(CONF_CACHE_PHOTOS, default=False): BooleanSelector(),
     }
     if include_sources:
         schema.update(
@@ -399,7 +397,9 @@ class AisShipTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
             return
         current = {**self.config_entry.data, **self.config_entry.options}
         self._pending_settings = {
-            key: value for key, value in current.items() if key != CONF_AREAS
+            key: value
+            for key, value in current.items()
+            if key not in {CONF_AREAS, "cache_photos"}
         }
         self._pending_areas = [dict(area) for area in configured_areas(current)]
 

@@ -176,7 +176,6 @@ class ShipPhotoCoordinator:
         tracker: AisTrackerCoordinator,
         username: str | None,
         password: str | None,
-        cache_photos: bool,
         entry_id: str,
         area_id: str,
         area_name: str,
@@ -188,7 +187,6 @@ class ShipPhotoCoordinator:
         self.area_id = area_id
         self.area_name = area_name
         self._auth = BasicAuth(username, password) if username else None
-        self._cache_photos = cache_photos
         self.entry_id = entry_id
         self._image: bytes | None = None
         self._content_type = "image/jpeg"
@@ -216,8 +214,6 @@ class ShipPhotoCoordinator:
 
     async def async_restore(self) -> None:
         """Restore the cached photo, if one exists for the last vessel."""
-        if not self._cache_photos:
-            return
         stored = await self._store.async_load()
         if not isinstance(stored, dict):
             return
@@ -402,8 +398,7 @@ class ShipPhotoCoordinator:
         if mmsi != self._mmsi:
             return True
         if (
-            self._cache_photos
-            and self._image is not None
+            self._image is not None
             and self._photo_cacheable
             and self._marine_traffic_ship_id
         ):
@@ -453,11 +448,7 @@ class ShipPhotoCoordinator:
         async with self._lock:
             self._last_attempt = datetime.now(UTC)
             if (
-                self._cache_photos
-                and (
-                    mmsi != self._mmsi
-                    or self._image is None
-                )
+                (mmsi != self._mmsi or self._image is None)
                 and self._restore_cached_photo(mmsi)
                 and self._marine_traffic_ship_id
             ):
@@ -666,7 +657,7 @@ class ShipPhotoCoordinator:
                             for key, value in photo_data.items()
                             if key != "image"
                         }
-                    if self._cache_photos and photo_cacheable:
+                    if photo_cacheable:
                         self._cached_photos[mmsi] = photo_data
                         await self._store.async_save(self._stored_data())
                     _LOGGER.debug(

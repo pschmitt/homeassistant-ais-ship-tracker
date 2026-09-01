@@ -12,5 +12,5 @@
     "custom_components.ais_ship_tracker"
   ],
   "requirements": ["beautifulsoup4>=4.12.3"],
-  "version": "2.9.0"
+  "version": "2.10.0"
 }

@@ -16,9 +16,10 @@ Assistant integration; no additional daemon is needed.
   entities are removed from Home Assistant automatically.
 - Vessel photo lookup through optional SearXNG image search plus direct
   VesselFinder and MarineTraffic fallbacks, exposed as a `camera` entity, with
-  an optional local photo cache.
+  a persistent local photo cache.
 - Config flow and options flow for one shared API key, multiple named tracking
-areas, filters, map retention, and optional photo lookup and caching.
+  areas, filters, map retention, and optional photo lookup with persistent
+  caching.
 - Repairs for AISStream authentication/subscription and SearXNG configuration failures.
 - Source-aware vessel data: observations record their source, and duplicate
   reports from multiple sources are merged by MMSI.
@@ -96,11 +97,10 @@ unavailable, rate-limited, or returns no supported image result, the integration
 still tries the public VesselFinder and then MarineTraffic details pages for a
 main vessel photo. A photo camera is created for each tracking area regardless
 of whether SearXNG is configured.
-Local photo caching is optional and disabled by default. When enabled, the
-each downloaded image is cached by MMSI in Home Assistant storage and reused
-after a restart or when that vessel is seen again; without a cached image, a
-lookup is retried on startup. Cached entries are retained until the integration
-is removed or its storage is cleared.
+Downloaded images are always cached by MMSI in Home Assistant storage and
+reused after a restart or when that vessel is seen again; without a cached image,
+a lookup is retried on startup. Cached entries are retained until the
+integration is removed or its storage is cleared.
 VesselFinder's generic “No photo” placeholder remains available as the live
 camera image, but is never cached and will be retried like an uncached result.
 If the SearXNG endpoint is protected by an external HTTP Basic Auth layer,

@@ -17,7 +17,6 @@
           "map_timeout_minutes": "Map vessel timeout (minutes)",
           "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
-          "cache_photos": "Cache boat photos locally",
           "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
           "searxng_password": "HTTP Basic Auth password for SearXNG (optional)",
           "area_count": "Number of tracking areas"
@@ -71,7 +70,6 @@
           "map_timeout_minutes": "Map vessel timeout (minutes)",
           "max_map_entities": "Maximum active vessel entities",
           "searxng_url": "SearXNG URL (optional)",
-          "cache_photos": "Cache boat photos locally",
           "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
           "searxng_password": "HTTP Basic Auth password for SearXNG (leave blank to keep it)"
         },
@@ -185,7 +183,6 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "cache_photos": "Cache boat photos locally",
               "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
               "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
@@ -220,7 +217,6 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "cache_photos": "Cache boat photos locally",
               "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
               "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
@@ -255,7 +251,6 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "cache_photos": "Cache boat photos locally",
               "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
               "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
@@ -290,7 +285,6 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "cache_photos": "Cache boat photos locally",
               "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
               "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },
@@ -325,7 +319,6 @@
               "map_timeout_minutes": "Map vessel timeout (minutes)",
               "max_map_entities": "Maximum active vessel entities",
               "searxng_url": "SearXNG URL (optional)",
-              "cache_photos": "Cache boat photos locally",
               "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
               "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
             },

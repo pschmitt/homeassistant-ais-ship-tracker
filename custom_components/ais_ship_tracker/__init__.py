@@ -20,7 +20,6 @@ from .areas import area_id, area_name, configured_areas
 from .const import (
     ATTR_MMSI,
     CONF_AREAS,
-    CONF_CACHE_PHOTOS,
     CONF_LATITUDE_NORTH,
     CONF_LATITUDE_SOUTH,
     CONF_LONGITUDE_EAST,
@@ -176,7 +175,6 @@ async def async_setup_entry(
             tracker,
             settings.get(CONF_SEARXNG_USERNAME),
             settings.get(CONF_SEARXNG_PASSWORD),
-            bool(settings.get(CONF_CACHE_PHOTOS, False)),
             entry.entry_id,
             area_id(area, index),
             area_name(area, index),

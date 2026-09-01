@@ -30,7 +30,6 @@ CONF_ZONE_RADIUS = "zone_radius"
 CONF_SEARXNG_URL = "searxng_url"
 CONF_SEARXNG_USERNAME = "searxng_username"
 CONF_SEARXNG_PASSWORD = "searxng_password"
-CONF_CACHE_PHOTOS = "cache_photos"
 
 ATTR_MMSI = "mmsi"
 SERVICE_REFRESH_VESSEL_PHOTO = "refresh_vessel_photo"
