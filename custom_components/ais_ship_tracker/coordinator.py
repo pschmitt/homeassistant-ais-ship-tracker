@@ -207,6 +207,7 @@ class ShipPhotoCoordinator:
         self._lock = asyncio.Lock()
         self._cached_photos: dict[str, dict[str, Any]] = {}
         self._photo_records: dict[str, dict[str, Any]] = {}
+        self._photo_images: dict[str, tuple[bytes, str]] = {}
         self._store = Store(
             hass,
             _PHOTO_STORE_VERSION,
@@ -256,6 +257,9 @@ class ShipPhotoCoordinator:
 
         self._image = image
         self._content_type = str(stored.get("content_type") or "image/jpeg")
+        if not self._content_type.lower().startswith("image/"):
+            self._content_type = "image/jpeg"
+        self._photo_images[mmsi] = (image, self._content_type)
         self._mmsi = mmsi
         self._marine_traffic_ship_id = str(
             stored.get("marine_traffic_ship_id") or ""
@@ -321,6 +325,13 @@ class ShipPhotoCoordinator:
         if photo is None or not photo.get("photo_url"):
             return None
         return photo
+
+    def image_for_mmsi(self, mmsi: object) -> tuple[bytes, str] | None:
+        """Return collected image bytes and their content type for an MMSI."""
+        value = str(mmsi).strip() if mmsi is not None else ""
+        if not value:
+            return None
+        return self._photo_images.get(value)
 
     @property
     def vessel_name(self) -> str:
@@ -632,6 +643,9 @@ class ShipPhotoCoordinator:
                         return
                     self._image = image
                     self._content_type = content_type.split(";", 1)[0]
+                    if not self._content_type.lower().startswith("image/"):
+                        self._content_type = "image/jpeg"
+                    self._photo_images[mmsi] = (image, self._content_type)
                     self._provider = provider
                     self._photo_url = photo_url
                     self._last_updated = datetime.now(UTC)

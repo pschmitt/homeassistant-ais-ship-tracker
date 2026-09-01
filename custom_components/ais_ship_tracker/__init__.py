@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
+from aiohttp import web
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.helpers.issue_registry import IssueSeverity
 
 from .areas import area_id, area_name, configured_areas
@@ -42,6 +44,33 @@ class AisShipTrackerRuntime:
 
 
 type AisShipTrackerConfigEntry = ConfigEntry[AisShipTrackerRuntime]
+
+
+class AisShipPhotoView(HomeAssistantView):
+    """Serve collected vessel photos through the authenticated HA API."""
+
+    url = "/api/ais_ship_tracker/photo/{entry_id}/{mmsi}"
+    name = "api:ais_ship_tracker:photo"
+    requires_auth = True
+
+    async def get(
+        self, request: web.Request, entry_id: str, mmsi: str
+    ) -> web.Response:
+        """Return the locally cached photo for one vessel."""
+        del request
+        entry = self.hass.config_entries.async_get_entry(entry_id)
+        if entry is None or entry.domain != DOMAIN or entry.runtime_data is None:
+            raise web.HTTPNotFound
+
+        for photo in entry.runtime_data.photos.values():
+            if image := photo.image_for_mmsi(mmsi):
+                image_bytes, content_type = image
+                return web.Response(
+                    body=image_bytes,
+                    content_type=content_type,
+                    headers={"Cache-Control": "private, max-age=3600"},
+                )
+        raise web.HTTPNotFound
 
 
 def _platforms_for_entry(entry: AisShipTrackerConfigEntry) -> list[str]:
@@ -119,6 +148,7 @@ def _update_config_issues(
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up the integration domain."""
     del config
+    hass.http.register_view(AisShipPhotoView())
     return True
 
 

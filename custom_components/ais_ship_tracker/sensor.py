@@ -302,11 +302,22 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
                 return photo_data
         return None
 
+    def _photo_coordinator(self) -> ShipPhotoCoordinator | None:
+        """Return the photo coordinator holding this vessel's image."""
+        for photo in self._photos:
+            if photo.image_for_mmsi(self.mmsi) is not None:
+                return photo
+        return None
+
     @property
     def entity_picture(self) -> str | None:
-        """Return the collected vessel photo URL for map markers."""
-        photo = self._photo()
-        return str(photo["photo_url"]) if photo else None
+        """Return the authenticated HA URL for the collected map photo."""
+        if self._photo_coordinator() is None:
+            return None
+        return (
+            f"/api/ais_ship_tracker/photo/"
+            f"{self.coordinator.entry_id}/{self.mmsi}"
+        )
 
     @property
     def name(self) -> str:
@@ -337,7 +348,9 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         if url:
             attributes["marinetraffic_url"] = url
         if photo := self._photo():
-            attributes["picture_url"] = photo.get("photo_url")
+            if self._photo_coordinator() is not None:
+                attributes["picture_url"] = self.entity_picture
+            attributes["photo_source_url"] = photo.get("photo_url")
             attributes["photo_origin"] = photo.get("provider")
             attributes["photo_author"] = photo.get("photo_author")
             attributes["photo_credit_url"] = photo.get("photo_credit_url")

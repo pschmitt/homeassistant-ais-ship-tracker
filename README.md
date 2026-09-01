@@ -134,8 +134,11 @@ removed; it will be recreated if it is observed again.
 
 When a vessel photo has already been collected, its map sensor also exposes
 the standard Home Assistant `entity_picture` attribute and a `picture_url`
-attribute. The map card can use `entity_picture` to render that vessel's
-photo; vessels without a collected photo continue to use their AIS icon.
+attribute. Both point to an authenticated Home Assistant endpoint serving the
+image already downloaded by the integration, so map rendering does not depend
+on the original photo host being reachable from the browser. The original
+provider URL is retained as `photo_source_url`. Vessels without a collected
+photo continue to use their AIS icon.
 
 Photo cameras include the current vessel's AIS attributes, the photo provider,
 source URL, photographer, and credit page, the generated `search_query` and
