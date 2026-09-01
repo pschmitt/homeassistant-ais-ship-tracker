@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from aiohttp import web
+from homeassistant.components.http import KEY_HASS
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
@@ -57,8 +58,7 @@ class AisShipPhotoView(HomeAssistantView):
         self, request: web.Request, entry_id: str, mmsi: str
     ) -> web.Response:
         """Return the locally cached photo for one vessel."""
-        del request
-        entry = self.hass.config_entries.async_get_entry(entry_id)
+        entry = request.app[KEY_HASS].config_entries.async_get_entry(entry_id)
         if entry is None or entry.domain != DOMAIN or entry.runtime_data is None:
             raise web.HTTPNotFound
 
