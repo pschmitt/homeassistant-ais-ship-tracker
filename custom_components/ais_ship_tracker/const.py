@@ -26,13 +26,16 @@ CONF_CLEAR_MAP_ON_STARTUP = "clear_map_on_startup"
 CONF_MAP_TIMEOUT_MINUTES = "map_timeout_minutes"
 CONF_ZONE_ENTITY = "zone_entity"
 CONF_ZONE_RADIUS = "zone_radius"
+CONF_MAP_RADIUS = "map_radius"
 
 CONF_SEARXNG_URL = "searxng_url"
 CONF_SEARXNG_USERNAME = "searxng_username"
 CONF_SEARXNG_PASSWORD = "searxng_password"
 
 ATTR_MMSI = "mmsi"
+ATTR_IGNORE_CACHE = "ignore_cache"
 SERVICE_REFRESH_VESSEL_PHOTO = "refresh_vessel_photo"
+SERVICE_PURGE_VESSEL_PHOTOS = "purge_vessel_photos"
 
 ISSUE_SEARXNG_AUTHENTICATION = "searxng_authentication"
 ISSUE_SEARXNG_ENDPOINT = "searxng_endpoint"

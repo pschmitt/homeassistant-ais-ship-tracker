@@ -10,7 +10,8 @@ from homeassistant.util import slugify
 
 from .const import (CONF_AREA_NAME, CONF_AREAS, CONF_LATITUDE_NORTH,
                     CONF_LATITUDE_SOUTH, CONF_LONGITUDE_EAST,
-                    CONF_LONGITUDE_WEST, CONF_ZONE_ENTITY, CONF_ZONE_RADIUS)
+                    CONF_LONGITUDE_WEST, CONF_MAP_RADIUS, CONF_ZONE_ENTITY,
+                    CONF_ZONE_RADIUS)
 
 DEFAULT_AREA_NAME = "Home"
 
@@ -66,19 +67,26 @@ def configured_areas(settings: dict[str, Any]) -> list[dict[str, Any]]:
 
 def area_form_defaults(area: dict[str, Any]) -> dict[str, Any]:
     """Convert a stored area to config-flow field names."""
-    return {
+    defaults = {
         CONF_AREA_NAME: area.get("name", DEFAULT_AREA_NAME),
         CONF_ZONE_ENTITY: area.get(CONF_ZONE_ENTITY, "zone.home"),
     }
+    if area.get(CONF_MAP_RADIUS):
+        defaults[CONF_MAP_RADIUS] = area[CONF_MAP_RADIUS]
+    return defaults
 
 
 def area_from_form(user_input: dict[str, Any], index: int) -> dict[str, Any]:
     """Convert config-flow fields to a stored area."""
-    return {
+    area = {
         "id": f"area_{index}",
         "name": str(user_input[CONF_AREA_NAME]).strip(),
         CONF_ZONE_ENTITY: str(user_input[CONF_ZONE_ENTITY]),
     }
+    map_radius = user_input.get(CONF_MAP_RADIUS)
+    if map_radius:
+        area[CONF_MAP_RADIUS] = float(map_radius)
+    return area
 
 
 def area_zone_location(
@@ -111,11 +119,34 @@ def area_zone_location(
     return (latitude, longitude, radius) if radius > 0 else None
 
 
+def area_map_location(
+    hass: HomeAssistant, area: dict[str, Any]
+) -> tuple[float, float, float] | None:
+    """Return the area's center and the radius used to fetch AIS data.
+
+    This is the source zone's radius, widened to the optional per-area
+    ``map_radius`` when one is configured. It is only used to decide how much
+    data to request from AIS sources; matching vessels to an area for the
+    last-passing-ship entity and sighting counters always uses the narrower
+    ``area_zone_location`` radius, so a wider map radius only surfaces more
+    vessels on the map without affecting notifications.
+    """
+    location = area_zone_location(hass, area)
+    if location is None:
+        return None
+    latitude, longitude, radius = location
+    try:
+        map_radius = float(area.get(CONF_MAP_RADIUS, 0) or 0)
+    except (TypeError, ValueError):
+        map_radius = 0
+    return (latitude, longitude, max(radius, map_radius))
+
+
 def area_bounding_box(
     hass: HomeAssistant, area: dict[str, Any]
 ) -> list[list[float]] | None:
     """Convert a circular HA zone into an AISStream square bounding box."""
-    location = area_zone_location(hass, area)
+    location = area_map_location(hass, area)
     if location is None:
         return None
     latitude, longitude, radius = location

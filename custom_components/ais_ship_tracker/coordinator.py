@@ -234,7 +234,7 @@ class ShipPhotoCoordinator:
             self._restore_cached_photo(str(current_ship.get("mmsi") or ""))
 
     def _restore_cached_photo(self, mmsi: str) -> bool:
-        """Restore one cached MMSI photo into the active camera state."""
+        """Restore one cached MMSI photo into the active vessel state."""
         if not mmsi:
             return False
         stored = self._photo_records.get(mmsi)
@@ -322,6 +322,48 @@ class ShipPhotoCoordinator:
             return None
         return photo
 
+    def _clear_current_locked(self) -> None:
+        """Reset the active photo pointer. Caller must hold ``_lock``."""
+        self._image = None
+        self._mmsi = ""
+        self._marine_traffic_ship_id = ""
+        self._provider = ""
+        self._photo_url = ""
+        self._photo_author = ""
+        self._photo_credit_url = ""
+        self._photo_cacheable = False
+        self._last_attempt = None
+        self._last_updated = None
+        self._error = ""
+
+    async def async_forget(self, mmsi: object) -> None:
+        """Delete one MMSI's cached photo so the next lookup is a fresh fetch."""
+        value = str(mmsi).strip() if mmsi is not None else ""
+        if not value:
+            return
+        async with self._lock:
+            changed = self._cached_photos.pop(value, None) is not None
+            self._photo_records.pop(value, None)
+            self._photo_images.pop(value, None)
+            if value == self._mmsi:
+                self._clear_current_locked()
+            if changed:
+                await self._store.async_save(self._stored_data())
+        self._notify_listeners()
+
+    async def async_forget_all(self) -> int:
+        """Delete every cached photo for this area. Returns the count removed."""
+        async with self._lock:
+            removed = len(self._cached_photos)
+            self._cached_photos.clear()
+            self._photo_records.clear()
+            self._photo_images.clear()
+            self._clear_current_locked()
+            if removed:
+                await self._store.async_save(self._stored_data())
+        self._notify_listeners()
+        return removed
+
     def image_for_mmsi(self, mmsi: object) -> tuple[bytes, str] | None:
         """Return collected image bytes and their content type for an MMSI."""
         value = str(mmsi).strip() if mmsi is not None else ""
@@ -341,7 +383,7 @@ class ShipPhotoCoordinator:
 
     @property
     def attributes(self) -> dict[str, Any]:
-        """Return the current vessel and photo lookup details for the camera."""
+        """Return the current vessel and photo lookup details."""
         ship = self.tracker.last_ships.get(self.area_id, {})
         ship_attributes = {
             key: value
@@ -373,15 +415,15 @@ class ShipPhotoCoordinator:
             "mmsi": mmsi or None,
             "vessel_finder_url": vessel_finder_url(mmsi),
             "marine_traffic_ship_id": marine_ship_id or None,
-            "marinetraffic_url": marine_traffic_url(marine_ship_id),
+            "marinetraffic_url": marine_traffic_url(marine_ship_id, mmsi),
             "provider": self._provider or None,
             "photo_origin": self._provider or None,
             "photo_url": self._photo_url or None,
             "photo_author": self._photo_author or None,
             "photo_credit": photo_credit or None,
             "photo_credit_url": self._photo_credit_url or None,
-            "search_query": search_query or None,
-            "search_url": search_url,
+            "searxng_search_query": search_query or None,
+            "searxng_search_url": search_url,
             "last_updated": self._last_updated.isoformat()
             if self._last_updated
             else None,
@@ -470,7 +512,7 @@ class ShipPhotoCoordinator:
             photo_url: str | None = None
             provider = ""
             photo_cacheable = True
-            photo_headers = {"User-Agent": "Home Assistant AIS ship photo camera"}
+            photo_headers = {"User-Agent": "Home Assistant AIS ship photo lookup"}
             photo_auth = self._auth
             photo_via_searxng = False
             details_url = vessel_finder_url(mmsi)
@@ -486,7 +528,7 @@ class ShipPhotoCoordinator:
                         search_url,
                         headers={
                             "Accept": "text/html",
-                            "User-Agent": "Home Assistant AIS ship photo camera",
+                            "User-Agent": "Home Assistant AIS ship photo lookup",
                         },
                         auth=self._auth,
                         timeout=15,

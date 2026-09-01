@@ -13,7 +13,8 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
-from .const import ATTR_MMSI, DOMAIN, SERVICE_REFRESH_VESSEL_PHOTO
+from .const import (ATTR_IGNORE_CACHE, ATTR_MMSI, DOMAIN,
+                    SERVICE_PURGE_VESSEL_PHOTOS, SERVICE_REFRESH_VESSEL_PHOTO)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +22,11 @@ SERVICE_REFRESH_VESSEL_PHOTO_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
         vol.Optional(ATTR_MMSI): vol.All(cv.string, vol.Match(r"^\d{9}$")),
+        vol.Optional(ATTR_IGNORE_CACHE, default=False): cv.boolean,
     }
 )
+
+SERVICE_PURGE_VESSEL_PHOTOS_SCHEMA = vol.Schema({})
 
 
 def _known_ships(tracker: Any) -> dict[str, dict[str, Any]]:
@@ -67,6 +71,7 @@ async def _async_refresh_vessel_photo(call: ServiceCall) -> None:
     """Refresh one vessel photo, targeted vessels, or all known photos."""
     requested_mmsi = call.data.get(ATTR_MMSI)
     entity_ids = call.data.get(ATTR_ENTITY_ID, [])
+    ignore_cache = call.data.get(ATTR_IGNORE_CACHE, False)
     target_mmsis = _target_mmsis(call.hass, entity_ids) if entity_ids else set()
     if requested_mmsi is not None and target_mmsis:
         raise ServiceValidationError(
@@ -94,6 +99,13 @@ async def _async_refresh_vessel_photo(call: ServiceCall) -> None:
             }
         )
         found_mmsis.update(ships)
+        if ignore_cache:
+            for photo in runtime.photos.values():
+                if selected_mmsis is None:
+                    await photo.async_forget_all()
+                else:
+                    for mmsi in selected_mmsis:
+                        await photo.async_forget(mmsi)
         for photo in runtime.photos.values():
             refresh_tasks.extend(
                 photo.async_refresh(force=True, ship_override=ship)
@@ -114,13 +126,33 @@ async def _async_refresh_vessel_photo(call: ServiceCall) -> None:
         scope = f" for {len(selected_mmsis)} targeted vessel(s)"
     else:
         scope = " for all known vessels"
-    _LOGGER.info("Refreshing AIS vessel photo(s)%s", scope)
+    _LOGGER.info(
+        "Refreshing AIS vessel photo(s)%s%s",
+        scope,
+        " (ignoring cached photos)" if ignore_cache else "",
+    )
     results = await asyncio.gather(*refresh_tasks, return_exceptions=True)
     errors = [result for result in results if isinstance(result, Exception)]
     if errors:
         _LOGGER.warning(
             "AIS vessel photo refresh completed with %d error(s)", len(errors)
         )
+
+
+async def _async_purge_vessel_photos(call: ServiceCall) -> None:
+    """Delete every cached vessel photo without looking up new ones."""
+    purged = 0
+    areas = 0
+    for entry in call.hass.config_entries.async_entries(DOMAIN):
+        runtime = entry.runtime_data
+        if runtime is None:
+            continue
+        for photo in runtime.photos.values():
+            purged += await photo.async_forget_all()
+            areas += 1
+    _LOGGER.info(
+        "Purged %d cached AIS vessel photo(s) across %d area(s)", purged, areas
+    )
 
 
 def async_setup_services(hass: HomeAssistant) -> None:
@@ -130,4 +162,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_REFRESH_VESSEL_PHOTO,
         _async_refresh_vessel_photo,
         schema=SERVICE_REFRESH_VESSEL_PHOTO_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PURGE_VESSEL_PHOTOS,
+        _async_purge_vessel_photos,
+        schema=SERVICE_PURGE_VESSEL_PHOTOS_SCHEMA,
     )

@@ -37,11 +37,16 @@
         "description": "Wähle die Home-Assistant-Zone, deren Mittelpunkt und Radius für die AIS-Suche verwendet werden.",
         "data": {
           "area_name": "Name des Gebiets",
-          "zone_entity": "Quellzone von Home Assistant"
+          "zone_entity": "Quellzone von Home Assistant",
+          "map_radius": "Erweiterter Kartenradius (Meter, optional)"
+        },
+        "data_description": {
+          "map_radius": "Wenn gesetzt, werden Schiffe innerhalb dieses größeren Radius auf der Karte angezeigt, aber nur Schiffe innerhalb der Zone oben zählen für den zuletzt gesichteten Schiff-Sensor und die Sichtungszähler."
         },
         "error": {
           "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
-          "invalid_zone": "Wähle eine vorhandene Home-Assistant-Zone."
+          "invalid_zone": "Wähle eine vorhandene Home-Assistant-Zone.",
+          "map_radius_too_small": "Der erweiterte Kartenradius muss mindestens dem Radius der Quellzone entsprechen."
         }
       }
     }
@@ -129,11 +134,16 @@
         "description": "Wähle die Home-Assistant-Zone, deren Mittelpunkt und Radius für die AIS-Suche verwendet werden.",
         "data": {
           "area_name": "Name des Gebiets",
-          "zone_entity": "Quellzone von Home Assistant"
+          "zone_entity": "Quellzone von Home Assistant",
+          "map_radius": "Erweiterter Kartenradius (Meter, optional)"
+        },
+        "data_description": {
+          "map_radius": "Wenn gesetzt, werden Schiffe innerhalb dieses größeren Radius auf der Karte angezeigt, aber nur Schiffe innerhalb der Zone oben zählen für den zuletzt gesichteten Schiff-Sensor und die Sichtungszähler."
         },
         "error": {
           "invalid_area_name": "Gib einen Namen für dieses Verfolgungsgebiet ein.",
-          "invalid_zone": "Wähle eine vorhandene Home-Assistant-Zone."
+          "invalid_zone": "Wähle eine vorhandene Home-Assistant-Zone.",
+          "map_radius_too_small": "Der erweiterte Kartenradius muss mindestens dem Radius der Quellzone entsprechen."
         }
       },
       "remove_area": {

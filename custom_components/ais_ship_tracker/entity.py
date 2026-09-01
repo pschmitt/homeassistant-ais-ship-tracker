@@ -17,12 +17,20 @@ def vessel_finder_url(mmsi: object) -> str | None:
     return f"https://www.vesselfinder.com/vessels/details/{value}" if value else None
 
 
-def marine_traffic_url(ship_id: object) -> str | None:
-    """Return the MarineTraffic details URL for an internal vessel ID."""
+def marine_traffic_url(ship_id: object, mmsi: object = None) -> str | None:
+    """Return the MarineTraffic details URL for a vessel.
+
+    Prefers the internal shipid (resolved via a search lookup) since that is
+    MarineTraffic's canonical link, but falls back to their MMSI-based deep
+    link so the attribute is still populated before that lookup succeeds.
+    """
     value = str(ship_id).strip() if ship_id is not None else ""
+    if value.isdigit():
+        return f"https://www.marinetraffic.com/en/ais/details/ships/shipid:{value}"
+    mmsi_value = str(mmsi).strip() if mmsi is not None else ""
     return (
-        f"https://www.marinetraffic.com/en/ais/details/ships/shipid:{value}"
-        if value.isdigit()
+        f"https://www.marinetraffic.com/en/ais/details/ships/mmsi:{mmsi_value}"
+        if mmsi_value.isdigit()
         else None
     )
 

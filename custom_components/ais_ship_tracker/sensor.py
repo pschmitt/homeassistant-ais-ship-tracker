@@ -39,6 +39,32 @@ def _add_source_attributes(attributes: dict[str, Any]) -> None:
             attributes["sources_seen_names"] = labels
 
 
+def _trigger_map_photo_lookup(
+    hass: HomeAssistant,
+    entry: AisShipTrackerConfigEntry,
+    mmsi: str,
+    ship: dict[str, Any],
+) -> None:
+    """Kick off a one-shot background photo lookup for a new map vessel.
+
+    Map vessels otherwise never get a photo: ShipPhotoCoordinator.async_refresh
+    is normally only triggered for whichever vessel becomes an area's
+    last-passing-ship. Any one area's coordinator is enough since map sensors
+    check every area's cache for a match (see AisMapShipSensor._photo).
+    """
+    photos = tuple(entry.runtime_data.photos.values())
+    if not photos:
+        return
+    photo = photos[0]
+    if photo.photo_for_mmsi(mmsi) is not None:
+        return
+    entry.async_create_background_task(
+        hass,
+        photo.async_refresh(ship_override=ship),
+        f"ais_ship_tracker_map_photo_{mmsi}",
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: AisShipTrackerConfigEntry,
@@ -77,6 +103,7 @@ async def async_setup_entry(
             known[mmsi] = AisMapShipSensor(
                 entry, tracker, mmsi, ship, tuple(entry.runtime_data.photos.values())
             )
+            _trigger_map_photo_lookup(hass, entry, mmsi, ship)
         entities.extend(known.values())
     async_add_entities(entities)
 
@@ -118,6 +145,7 @@ async def async_setup_entry(
                     tuple(entry.runtime_data.photos.values()),
                 )
                 new_entities.append(known[mmsi])
+                _trigger_map_photo_lookup(hass, entry, mmsi, ship)
         if new_entities:
             async_add_entities(new_entities)
 
@@ -215,7 +243,9 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
-        url = marine_traffic_url(attributes.get("marine_traffic_ship_id"))
+        url = marine_traffic_url(
+            attributes.get("marine_traffic_ship_id"), attributes.get("mmsi")
+        )
         if url:
             attributes["marinetraffic_url"] = url
         photo_coordinator = self._photo_coordinator()
@@ -400,7 +430,9 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
-        url = marine_traffic_url(attributes.get("marine_traffic_ship_id"))
+        url = marine_traffic_url(
+            attributes.get("marine_traffic_ship_id"), attributes.get("mmsi")
+        )
         if url:
             attributes["marinetraffic_url"] = url
         if photo := self._photo():

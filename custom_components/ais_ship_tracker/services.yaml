@@ -14,3 +14,19 @@ refresh_vessel_photo:
       example: "211890880"
       selector:
         text:
+    ignore_cache:
+      name: Ignore cache
+      description: >-
+        Delete any cached photo for the target vessel(s) first, then look up
+        a new one instead of reusing the cached result. Without a target or
+        MMSI, this clears the entire photo cache for all configured areas.
+      default: false
+      selector:
+        boolean:
+
+purge_vessel_photos:
+  name: Purge vessel photos
+  description: >-
+    Delete every cached vessel photo for all configured areas without
+    looking up new ones. Photos are re-fetched the next time a vessel
+    becomes an area's last-passing-ship or a new map entity is created.

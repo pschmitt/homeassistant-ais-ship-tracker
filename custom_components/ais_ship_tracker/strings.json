@@ -37,11 +37,16 @@
         "description": "Choose the Home Assistant zone whose center and radius should be used for AIS lookups.",
         "data": {
           "area_name": "Area name",
-          "zone_entity": "Source Home Assistant zone"
+          "zone_entity": "Source Home Assistant zone",
+          "map_radius": "Extended map radius (metres, optional)"
+        },
+        "data_description": {
+          "map_radius": "If set, ships within this larger radius are shown on the map, but only ships inside the zone above count toward the last passing ship and sighting totals."
         },
         "error": {
           "invalid_area_name": "Enter a name for this tracking area.",
-          "invalid_zone": "Choose an existing Home Assistant zone."
+          "invalid_zone": "Choose an existing Home Assistant zone.",
+          "map_radius_too_small": "The extended map radius must be at least the source zone's radius."
         }
       }
     }
@@ -129,11 +134,16 @@
         "description": "Choose the Home Assistant zone whose center and radius should be used for AIS lookups.",
         "data": {
           "area_name": "Area name",
-          "zone_entity": "Source Home Assistant zone"
+          "zone_entity": "Source Home Assistant zone",
+          "map_radius": "Extended map radius (metres, optional)"
+        },
+        "data_description": {
+          "map_radius": "If set, ships within this larger radius are shown on the map, but only ships inside the zone above count toward the last passing ship and sighting totals."
         },
         "error": {
           "invalid_area_name": "Enter a name for this tracking area.",
-          "invalid_zone": "Choose an existing Home Assistant zone."
+          "invalid_zone": "Choose an existing Home Assistant zone.",
+          "map_radius_too_small": "The extended map radius must be at least the source zone's radius."
         }
       },
       "remove_area": {

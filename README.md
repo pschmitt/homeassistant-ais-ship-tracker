@@ -61,6 +61,13 @@ bounding box required by AISStream. This keeps the HA zone as the single source
 of truth: changing its center or radius automatically rebuilds the AIS
 subscription.
 
+Each area also accepts an optional, larger **extended map radius**. When set,
+AIS sources are queried out to that wider radius so more vessels show up on
+the map, but the last-passing-ship entity and the today/last-hour sighting
+counters still only count vessels inside the area's own zone radius. Leave it
+unset to keep detection and the map at the same size. The extended radius
+must be at least the zone's own radius.
+
 The initial flow asks for shared settings and the number of tracking areas,
 then presents one form per area. Multiple areas use the same credentials and a
 single AISStream subscription. Open **Configure** for the integration and use
@@ -152,7 +159,18 @@ lookup. Target one or more AIS vessel sensors for normal use, provide a
 nine-digit `mmsi` for an automation-friendly stable identifier, or leave both
 empty to refresh all currently known vessels. The service uses the configured
 SearXNG/VesselFinder/MarineTraffic lookup path and never creates synthetic
-images.
+images. By default a vessel with an already-cached photo is simply restored
+from that cache rather than re-fetched; set the service's `ignore_cache`
+option to delete the cached photo(s) first and perform a genuinely new
+lookup. Combined with leaving the target and MMSI empty, `ignore_cache`
+clears the entire photo cache for all configured areas and looks up every
+currently known vessel again.
+
+Use the `ais_ship_tracker.purge_vessel_photos` service to delete every
+cached vessel photo for all configured areas without looking up new ones —
+a plain cache clear, with no automatic resync. Purged vessels get a fresh
+photo the next time they become an area's last-passing-ship or a new map
+entity is created for them.
 
 The last-passing-ship sensors include the current vessel's AIS attributes, the
 photo provider, source URL, photographer, and credit page. The generated

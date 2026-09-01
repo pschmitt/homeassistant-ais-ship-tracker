@@ -31,6 +31,7 @@ from .const import (
     CONF_AREAS,
     CONF_ENABLE_MAP_ENTITIES,
     CONF_INCLUDE_CLASS_B,
+    CONF_MAP_RADIUS,
     CONF_MAP_TIMEOUT_MINUTES,
     CONF_MAX_MAP_ENTITIES,
     CONF_LOCAL_MQTT_ENABLED,
@@ -205,7 +206,13 @@ def _area_schema(
                 CONF_ZONE_ENTITY, default=selected_zone
             ): SelectSelector(
                 SelectSelectorConfig(options=_zone_options(hass, selected_zone))
-            )
+            ),
+            vol.Optional(
+                CONF_MAP_RADIUS,
+                description={"suggested_value": defaults.get(CONF_MAP_RADIUS)},
+            ): NumberSelector(
+                NumberSelectorConfig(min=1, mode="box", unit_of_measurement="m")
+            ),
         }
     )
 
@@ -250,8 +257,17 @@ def _validate_area(user_input: dict[str, Any], hass: Any) -> str | None:
     if not str(user_input.get(CONF_AREA_NAME, "")).strip():
         return "invalid_area_name"
     zone_entity = str(user_input.get(CONF_ZONE_ENTITY, ""))
-    if not zone_entity.startswith("zone.") or hass.states.get(zone_entity) is None:
+    zone_state = hass.states.get(zone_entity)
+    if not zone_entity.startswith("zone.") or zone_state is None:
         return "invalid_zone"
+    map_radius = user_input.get(CONF_MAP_RADIUS)
+    if map_radius is not None:
+        try:
+            zone_radius = float(zone_state.attributes["radius"])
+        except (KeyError, TypeError, ValueError):
+            zone_radius = None
+        if zone_radius is not None and float(map_radius) < zone_radius:
+            return "map_radius_too_small"
     return None
 
 
