@@ -35,19 +35,29 @@ async def async_setup_entry(
 ) -> None:
     """Set up the persistent and optional map sensors."""
     tracker = entry.runtime_data.tracker
+    areas = configured_areas(tracker.settings)
     remove_legacy_entities(hass, entry, {"last_passing_ship"})
+    remove_legacy_entities(
+        hass,
+        entry,
+        {
+            f"last_passing_ship_photo_{area_id(area, index)}"
+            for index, area in enumerate(areas, 1)
+        },
+    )
+    photos = tuple(entry.runtime_data.photos.values())
     entities: list[SensorEntity] = [AisConnectionStatusSensor(entry)]
     entities.extend(
-        LastPassingShipSensor(entry, area, index)
-        for index, area in enumerate(configured_areas(tracker.settings), 1)
+        LastPassingShipSensor(entry, area, index, photos)
+        for index, area in enumerate(areas, 1)
     )
     count_sensors = [
         ShipCountSensor(entry, area, index, period="day")
-        for index, area in enumerate(configured_areas(tracker.settings), 1)
+        for index, area in enumerate(areas, 1)
     ]
     count_sensors.extend(
         ShipCountSensor(entry, area, index, period="hour")
-        for index, area in enumerate(configured_areas(tracker.settings), 1)
+        for index, area in enumerate(areas, 1)
     )
     entities.extend(count_sensors)
     known: dict[str, AisMapShipSensor] = {}
@@ -145,7 +155,11 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
     _attr_name = "Last Passing Ship"
 
     def __init__(
-        self, entry: AisShipTrackerConfigEntry, area: dict[str, Any], index: int
+        self,
+        entry: AisShipTrackerConfigEntry,
+        area: dict[str, Any],
+        index: int,
+        photos: tuple[ShipPhotoCoordinator, ...],
     ) -> None:
         """Initialize the last vessel sensor."""
         super().__init__(entry)
@@ -154,6 +168,23 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         self._attr_unique_id = f"last_passing_ship_{self.area_id}"
         self._attr_suggested_object_id = f"{area_slug(area, index)}_last_passing_ship"
         self.coordinator = entry.runtime_data.tracker
+        self._photos = photos
+
+    def _photo_coordinator(self) -> ShipPhotoCoordinator | None:
+        """Return the photo coordinator holding the current vessel image."""
+        mmsi = self.coordinator.last_ships.get(self.area_id, {}).get("mmsi")
+        for photo in self._photos:
+            if photo.image_for_mmsi(mmsi) is not None:
+                return photo
+        return None
+
+    @property
+    def entity_picture(self) -> str | None:
+        """Return the HA URL for the current vessel photo."""
+        if self._photo_coordinator() is None:
+            return None
+        mmsi = self.coordinator.last_ships.get(self.area_id, {}).get("mmsi")
+        return f"/api/ais_ship_tracker/photo/{self.coordinator.entry_id}/{mmsi}"
 
     @property
     def available(self) -> bool:
@@ -175,6 +206,16 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         url = marine_traffic_url(attributes.get("marine_traffic_ship_id"))
         if url:
             attributes["marinetraffic_url"] = url
+        photo_coordinator = self._photo_coordinator()
+        if photo_coordinator is not None:
+            mmsi = str(attributes.get("mmsi") or "")
+            attributes["picture_url"] = self.entity_picture
+            if photo := photo_coordinator.photo_for_mmsi(mmsi):
+                attributes["photo_source_url"] = photo.get("photo_url")
+                attributes["photo_origin"] = photo.get("provider")
+                attributes["photo_author"] = photo.get("photo_author")
+                attributes["photo_credit_url"] = photo.get("photo_credit_url")
+                attributes["photo_last_updated"] = photo.get("last_updated")
         return attributes
 
     async def async_added_to_hass(self) -> None:
@@ -183,6 +224,8 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         self.async_on_remove(
             self.coordinator.async_add_listener(self.async_write_ha_state)
         )
+        for photo in self._photos:
+            self.async_on_remove(photo.async_add_listener(self.async_write_ha_state))
 
 
 class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):

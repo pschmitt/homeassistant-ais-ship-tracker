@@ -27,7 +27,7 @@ async def async_get_config_entry_diagnostics(
     tracker = runtime.tracker
     photos = runtime.photos
     settings = {**config_entry.data, **config_entry.options}
-    cameras = {
+    photos = {
         area_id: {
             "available": photo.available,
             "attributes": photo.attributes,
@@ -70,5 +70,5 @@ async def async_get_config_entry_diagnostics(
             "last_ships": tracker.last_ships,
             "map_ship_count": len(tracker.ships),
         },
-        "cameras": cameras,
+        "photos": photos,
     }

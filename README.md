@@ -15,8 +15,8 @@ Assistant integration; no additional daemon is needed.
 - A bounded set of temporary per-vessel sensors for map cards; expired vessel
   entities are removed from Home Assistant automatically.
 - Vessel photo lookup through optional SearXNG image search plus direct
-  VesselFinder and MarineTraffic fallbacks, exposed as a `camera` entity, with
-  a persistent local photo cache.
+  VesselFinder and MarineTraffic fallbacks, exposed on the last-vessel sensor,
+  with a persistent local photo cache.
 - Config flow and options flow for one shared API key, multiple named tracking
   areas, filters, map retention, and optional photo lookup with persistent
   caching.
@@ -90,19 +90,23 @@ replaced when another vessel is detected and removed when the integration or
 tracking area is removed.
 
 SearXNG is optional. When configured, the integration searches for the vessel
-name and MMSI and serves the selected image through Home Assistant's camera
-entity. Search results and VesselFinder pages are parsed with Beautiful Soup
+name and MMSI and attaches the selected image to the last-vessel sensor.
+Search results and VesselFinder pages are parsed with Beautiful Soup
 rather than relying on fixed HTML attribute ordering. When SearXNG is unset,
 unavailable, rate-limited, or returns no supported image result, the integration
 still tries the public VesselFinder and then MarineTraffic details pages for a
-main vessel photo. A photo camera is created for each tracking area regardless
-of whether SearXNG is configured.
+main vessel photo. The downloaded image is served through a public Home
+Assistant endpoint referenced by the sensor's standard `entity_picture`
+attribute. This is required because Home Assistant map markers load that URL
+as a CSS background image and cannot attach an API bearer token. The endpoint
+only serves already-downloaded, publicly sourced vessel photos and does not
+expose AIS data or configured credentials.
 Downloaded images are always cached by MMSI in Home Assistant storage and
 reused after a restart or when that vessel is seen again; without a cached image,
 a lookup is retried on startup. Cached entries are retained until the
 integration is removed or its storage is cleared.
 VesselFinder's generic “No photo” placeholder remains available as the live
-camera image, but is never cached and will be retried like an uncached result.
+sensor image, but is never cached and will be retried like an uncached result.
 If the SearXNG endpoint is protected by an external HTTP Basic Auth layer,
 configure its optional username and password; these are not SearXNG account
 credentials.
@@ -119,9 +123,9 @@ The integration creates these entities for every configured tracking area:
 - `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
   each newly detected MMSI in that area after its optional photo lookup
   completes, with a bounded 45-second wait.
-- `camera.ais_ship_tracker_<area>_last_passing_ship_photo` — the latest vessel
-  photo for that area, using SearXNG when configured and direct provider
-  fallbacks otherwise.
+- `sensor.ais_ship_tracker_<area>_last_passing_ship` — the latest vessel and,
+  when available, its photo through the standard `entity_picture` attribute
+  and the matching `picture_url` attribute.
 - `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
   state.
 - `zone.ais_ship_tracking_area` and one additional passive zone per configured
@@ -136,11 +140,12 @@ removed; it will be recreated if it is observed again.
 
 When a vessel photo has already been collected, its map sensor also exposes
 the standard Home Assistant `entity_picture` attribute and a `picture_url`
-attribute. Both point to an authenticated Home Assistant endpoint serving the
-image already downloaded by the integration, so map rendering does not depend
-on the original photo host being reachable from the browser. The original
-provider URL is retained as `photo_source_url`. Vessels without a collected
-photo continue to use their AIS icon.
+attribute. Both point to a Home Assistant endpoint serving the image already
+downloaded by the integration, so map rendering does not depend on the
+original photo host being reachable from the browser. The endpoint is
+intentionally unauthenticated because map marker CSS images cannot attach HA
+API credentials. The original provider URL is retained as `photo_source_url`.
+Vessels without a collected photo continue to use their AIS icon.
 
 Use the `ais_ship_tracker.refresh_vessel_photo` service to force a fresh
 lookup. Target one or more AIS vessel sensors for normal use, provide a
@@ -149,11 +154,12 @@ empty to refresh all currently known vessels. The service uses the configured
 SearXNG/VesselFinder/MarineTraffic lookup path and never creates synthetic
 images.
 
-Photo cameras include the current vessel's AIS attributes, the photo provider,
-source URL, photographer, and credit page, the generated `search_query` and
-`search_url`, and any lookup error as camera attributes. The last-passing-ship
-sensors, temporary per-vessel sensors, event entities, and photo cameras expose
-`vessel_finder_url` whenever an MMSI is available. They also expose
+The last-passing-ship sensors include the current vessel's AIS attributes, the
+photo provider, source URL, photographer, and credit page. The generated
+`searxng_search_query` and `searxng_search_url`, plus any lookup error, are
+available on the photo lookup diagnostics. The last-passing-ship sensors,
+temporary per-vessel sensors, and event entities expose `vessel_finder_url`
+whenever an MMSI is available. They also expose
 `marinetraffic_url` once a MarineTraffic internal `shipid` has been found in the
 SearXNG results. MarineTraffic does not accept an MMSI in that URL position:
 the URL must use the form

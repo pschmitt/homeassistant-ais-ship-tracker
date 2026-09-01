@@ -157,9 +157,6 @@
     },
     "event": {
       "last_ship_updated": {"name": "Last Ship Updated"}
-    },
-    "camera": {
-      "last_passing_ship_photo": {"name": "Last Passing Ship Photo"}
     }
   },
   "issues": {

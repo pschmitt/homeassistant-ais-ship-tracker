@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "ais_ship_tracker"
-PLATFORMS = ["sensor", "event", "camera"]
+PLATFORMS = ["sensor", "event"]
 
 CONF_API_KEY = "api_key"
 CONF_AISSTREAM_ENABLED = "aisstream_enabled"

@@ -49,11 +49,14 @@ type AisShipTrackerConfigEntry = ConfigEntry[AisShipTrackerRuntime]
 
 
 class AisShipPhotoView(HomeAssistantView):
-    """Serve collected vessel photos through the authenticated HA API."""
+    """Serve collected vessel photos to Home Assistant frontend image tags."""
 
     url = "/api/ais_ship_tracker/photo/{entry_id}/{mmsi}"
     name = "api:ais_ship_tracker:photo"
-    requires_auth = True
+    # Map markers use CSS background images and cannot attach the HA bearer
+    # header.  The endpoint serves only already-downloaded public provider
+    # photos, addressed by an opaque config-entry ID and MMSI.
+    requires_auth = False
 
     async def get(
         self, request: web.Request, entry_id: str, mmsi: str
@@ -76,10 +79,8 @@ class AisShipPhotoView(HomeAssistantView):
 
 def _platforms_for_entry(entry: AisShipTrackerConfigEntry) -> list[str]:
     """Return only platforms that were forwarded for this config entry."""
-    platforms = ["sensor", "event"]
-    if entry.runtime_data is not None and entry.runtime_data.photos:
-        platforms.append("camera")
-    return platforms
+    del entry
+    return ["sensor", "event"]
 
 
 async def async_migrate_entry(
