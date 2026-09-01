@@ -432,8 +432,6 @@ class ShipPhotoCoordinator:
         ship_override: dict[str, Any] | None = None,
     ) -> None:
         """Search for and cache the current vessel photo."""
-        if not self.searxng_url:
-            return
         ship = ship_override or self.tracker.last_ships.get(self.area_id)
         if ship is None:
             self._set_error("No vessel has been detected yet")
@@ -478,7 +476,6 @@ class ShipPhotoCoordinator:
             self._photo_cacheable = False
             self._error = ""
             query = " ".join(part for part in (vessel_name, mmsi) if part)
-            search_url = f"{self.searxng_url}/search?{urlencode({'q': query, 'categories': 'images'})}"
             photo_url: str | None = None
             provider = ""
             photo_cacheable = True
@@ -488,46 +485,58 @@ class ShipPhotoCoordinator:
             details_url = vessel_finder_url(mmsi)
             details_html: str | None = None
 
-            try:
-                async with self.session.get(
-                    search_url,
-                    headers={
-                        "Accept": "text/html",
-                        "User-Agent": "Home Assistant AIS ship photo camera",
-                    },
-                    auth=self._auth,
-                    timeout=15,
-                ) as response:
-                    response.raise_for_status()
-                    search_html = await response.text()
+            if self.searxng_url:
+                search_url = (
+                    f"{self.searxng_url}/search?"
+                    f"{urlencode({'q': query, 'categories': 'images'})}"
+                )
+                try:
+                    async with self.session.get(
+                        search_url,
+                        headers={
+                            "Accept": "text/html",
+                            "User-Agent": "Home Assistant AIS ship photo camera",
+                        },
+                        auth=self._auth,
+                        timeout=15,
+                    ) as response:
+                        response.raise_for_status()
+                        search_html = await response.text()
+                    self._set_service_issue(None)
+                    marine_ship_id = _marine_traffic_ship_id(search_html)
+                    if marine_ship_id:
+                        self._marine_traffic_ship_id = marine_ship_id
+                        self.tracker.set_marine_traffic_ship_id(mmsi, marine_ship_id)
+                    search_candidate = _search_photo_candidate(
+                        search_html, self.searxng_url
+                    )
+                    if search_candidate:
+                        photo_url, provider = search_candidate
+                        photo_via_searxng = True
+                except ClientResponseError as err:
+                    if err.status in (401, 403):
+                        self._set_service_issue(ISSUE_SEARXNG_AUTHENTICATION)
+                    elif err.status in (404, 429):
+                        self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
+                    _LOGGER.warning(
+                        "AIS Ship Tracker SearXNG lookup failed for %s: HTTP %s; "
+                        "trying direct provider fallbacks",
+                        mmsi,
+                        err.status,
+                    )
+                except (ClientError, asyncio.TimeoutError) as err:
+                    _LOGGER.warning(
+                        "AIS Ship Tracker SearXNG lookup failed for %s: %s; "
+                        "trying direct provider fallbacks",
+                        mmsi,
+                        err,
+                    )
+            else:
                 self._set_service_issue(None)
-                marine_ship_id = _marine_traffic_ship_id(search_html)
-                if marine_ship_id:
-                    self._marine_traffic_ship_id = marine_ship_id
-                    self.tracker.set_marine_traffic_ship_id(mmsi, marine_ship_id)
-                search_candidate = _search_photo_candidate(
-                    search_html, self.searxng_url
-                )
-                if search_candidate:
-                    photo_url, provider = search_candidate
-                    photo_via_searxng = True
-            except ClientResponseError as err:
-                if err.status in (401, 403):
-                    self._set_service_issue(ISSUE_SEARXNG_AUTHENTICATION)
-                elif err.status in (404, 429):
-                    self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
-                _LOGGER.warning(
-                    "AIS Ship Tracker SearXNG lookup failed for %s: HTTP %s; "
-                    "trying VesselFinder fallback",
+                _LOGGER.debug(
+                    "SearXNG photo lookup is disabled for %s; trying direct "
+                    "provider fallbacks",
                     mmsi,
-                    err.status,
-                )
-            except (ClientError, asyncio.TimeoutError) as err:
-                _LOGGER.warning(
-                    "AIS Ship Tracker SearXNG lookup failed for %s: %s; "
-                    "trying VesselFinder fallback",
-                    mmsi,
-                    err,
                 )
 
             if photo_url is None:
@@ -594,7 +603,7 @@ class ShipPhotoCoordinator:
                                 err,
                             )
             if photo_url is None:
-                marine_url = marine_traffic_url(self._marine_traffic_ship_id)
+                marine_url = marine_traffic_url(self._marine_traffic_ship_id, mmsi)
                 if marine_url:
                     try:
                         async with self.session.get(

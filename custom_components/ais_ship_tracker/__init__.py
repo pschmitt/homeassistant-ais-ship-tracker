@@ -168,23 +168,21 @@ async def async_setup_entry(
         settings,
         entry.entry_id,
     )
-    photos: dict[str, ShipPhotoCoordinator] = {}
-    if settings.get(CONF_SEARXNG_URL):
-        photos = {
-            area_id(area, index): ShipPhotoCoordinator(
-                hass,
-                async_get_clientsession(hass),
-                settings[CONF_SEARXNG_URL],
-                tracker,
-                settings.get(CONF_SEARXNG_USERNAME),
-                settings.get(CONF_SEARXNG_PASSWORD),
-                bool(settings.get(CONF_CACHE_PHOTOS, False)),
-                entry.entry_id,
-                area_id(area, index),
-                area_name(area, index),
-            )
-            for index, area in enumerate(configured_areas(settings), 1)
-        }
+    photos: dict[str, ShipPhotoCoordinator] = {
+        area_id(area, index): ShipPhotoCoordinator(
+            hass,
+            async_get_clientsession(hass),
+            str(settings.get(CONF_SEARXNG_URL) or ""),
+            tracker,
+            settings.get(CONF_SEARXNG_USERNAME),
+            settings.get(CONF_SEARXNG_PASSWORD),
+            bool(settings.get(CONF_CACHE_PHOTOS, False)),
+            entry.entry_id,
+            area_id(area, index),
+            area_name(area, index),
+        )
+        for index, area in enumerate(configured_areas(settings), 1)
+    }
     entry.runtime_data = AisShipTrackerRuntime(tracker=tracker, photos=photos)
     await tracker.async_start()
     for photo in photos.values():

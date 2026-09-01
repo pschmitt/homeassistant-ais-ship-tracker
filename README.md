@@ -14,8 +14,9 @@ Assistant integration; no additional daemon is needed.
 - Connection status and an event fired when a new vessel becomes the last seen vessel.
 - A bounded set of temporary per-vessel sensors for map cards; expired vessel
   entities are removed from Home Assistant automatically.
-- Optional SearXNG image search, preferring MarineTraffic and falling back to
-  VesselFinder, exposed as a `camera` entity, with an optional local photo cache.
+- Vessel photo lookup through optional SearXNG image search plus direct
+  VesselFinder and MarineTraffic fallbacks, exposed as a `camera` entity, with
+  an optional local photo cache.
 - Config flow and options flow for one shared API key, multiple named tracking
 areas, filters, map retention, and optional photo lookup and caching.
 - Repairs for AISStream authentication/subscription and SearXNG configuration failures.
@@ -87,13 +88,14 @@ recently detected vessel indefinitely and restore it after a restart. They are
 replaced when another vessel is detected and removed when the integration or
 tracking area is removed.
 
-SearXNG is optional. If no URL is configured, no photo camera is created. If
-configured, the integration searches for the vessel name and MMSI and serves
-the selected image through Home Assistant's camera entity. Search results and
-VesselFinder pages are parsed with Beautiful Soup rather than relying on fixed
-HTML attribute ordering. If SearXNG is unavailable, rate-limited, or returns
-no supported image result, it tries the public VesselFinder and then
-MarineTraffic details pages for a main vessel photo.
+SearXNG is optional. When configured, the integration searches for the vessel
+name and MMSI and serves the selected image through Home Assistant's camera
+entity. Search results and VesselFinder pages are parsed with Beautiful Soup
+rather than relying on fixed HTML attribute ordering. When SearXNG is unset,
+unavailable, rate-limited, or returns no supported image result, the integration
+still tries the public VesselFinder and then MarineTraffic details pages for a
+main vessel photo. A photo camera is created for each tracking area regardless
+of whether SearXNG is configured.
 Local photo caching is optional and disabled by default. When enabled, the
 each downloaded image is cached by MMSI in Home Assistant storage and reused
 after a restart or when that vessel is seen again; without a cached image, a
@@ -117,9 +119,9 @@ The integration creates these entities for every configured tracking area:
 - `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
   each newly detected MMSI in that area after its optional photo lookup
   completes, with a bounded 45-second wait.
-- When SearXNG is configured,
-  `camera.ais_ship_tracker_<area>_last_passing_ship_photo` — the latest vessel
-  photo for that area.
+- `camera.ais_ship_tracker_<area>_last_passing_ship_photo` — the latest vessel
+  photo for that area, using SearXNG when configured and direct provider
+  fallbacks otherwise.
 - `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
   state.
 - `zone.ais_ship_tracking_area` and one additional passive zone per configured
