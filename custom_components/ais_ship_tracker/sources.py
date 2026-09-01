@@ -12,6 +12,18 @@ SOURCE_AISSTREAM = "aisstream"
 SOURCE_LOCAL_MQTT = "local_mqtt"
 SOURCE_AISHUB = "aishub"
 
+SOURCE_LABELS = {
+    SOURCE_AISSTREAM: "AISStream",
+    SOURCE_LOCAL_MQTT: "AIS-catcher",
+    SOURCE_AISHUB: "AISHub",
+}
+
+
+def source_label(source: object) -> str | None:
+    """Return a human-readable label for a normalized source identifier."""
+    value = str(source).strip() if source is not None else ""
+    return SOURCE_LABELS.get(value, value or None)
+
 
 @dataclass(slots=True)
 class AisObservation:

@@ -22,10 +22,21 @@ from .entity import (
     remove_legacy_entities,
     vessel_finder_url,
 )
+from .sources import SOURCE_AISHUB, SOURCE_LOCAL_MQTT, source_label
 from .tracker import AisTrackerCoordinator
-from .sources import SOURCE_AISHUB, SOURCE_LOCAL_MQTT
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _add_source_attributes(attributes: dict[str, Any]) -> None:
+    """Add readable source metadata without changing normalized source IDs."""
+    if source := source_label(attributes.get("source")):
+        attributes["source_name"] = source
+    sources_seen = attributes.get("sources_seen")
+    if isinstance(sources_seen, list):
+        labels = [label for item in sources_seen if (label := source_label(item))]
+        if labels:
+            attributes["sources_seen_names"] = labels
 
 
 async def async_setup_entry(
@@ -200,6 +211,7 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the latest vessel details."""
         attributes = dict(self.coordinator.last_ships.get(self.area_id, {}))
+        _add_source_attributes(attributes)
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
@@ -384,6 +396,7 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         attributes = {
             key: value for key, value in self._ship.items() if not key.startswith("_")
         }
+        _add_source_attributes(attributes)
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url

@@ -179,11 +179,13 @@ payloads without a valid nine-digit MMSI are ignored. Position reports update
 the vessel and enter the configured area geofence. Static/voyage reports are
 retained and merged with later position reports.
 
-The `source` attribute identifies the most recent source (`aisstream` or
-`local_mqtt`), while `sources_seen` lists all sources that have reported the
-vessel during the current runtime. A vessel entering an area produces one
-`ship_updated` event even if the same vessel is subsequently observed through
-another source.
+The `source` attribute identifies the most recent normalized source ID
+(`aisstream`, `local_mqtt`, or `aishub`), while `source_name` provides the
+human-readable label (`AISStream`, `AIS-catcher`, or `AISHub`). `sources_seen`
+and `sources_seen_names` provide the corresponding lists of all sources that
+have reported the vessel during the current runtime. A vessel entering an area
+produces one `ship_updated` event even if the same vessel is subsequently
+observed through another source.
 
 AISHub positions are marked as `aishub`; they represent the remote aggregate
 and are therefore not proof that the local antenna heard a vessel. The local

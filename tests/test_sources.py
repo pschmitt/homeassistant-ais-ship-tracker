@@ -24,6 +24,13 @@ SPEC.loader.exec_module(sources)
 class SourceParserTest(unittest.TestCase):
     """Validate the source boundary and normalized fields."""
 
+    def test_source_labels_are_human_readable(self):
+        self.assertEqual(sources.source_label("aisstream"), "AISStream")
+        self.assertEqual(sources.source_label("local_mqtt"), "AIS-catcher")
+        self.assertEqual(sources.source_label("aishub"), "AISHub")
+        self.assertEqual(sources.source_label("future_source"), "future_source")
+        self.assertIsNone(sources.source_label(None))
+
     def test_aiscatcher_json_full_position(self) -> None:
         observation = sources.parse_aiscatcher_message(
             {
