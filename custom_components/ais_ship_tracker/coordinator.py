@@ -206,6 +206,7 @@ class ShipPhotoCoordinator:
         self._listeners: list[Callable[[], None]] = []
         self._lock = asyncio.Lock()
         self._cached_photos: dict[str, dict[str, Any]] = {}
+        self._photo_records: dict[str, dict[str, Any]] = {}
         self._store = Store(
             hass,
             _PHOTO_STORE_VERSION,
@@ -229,6 +230,7 @@ class ShipPhotoCoordinator:
         elif stored.get("image") and stored.get("mmsi"):
             # Migrate the initial single-photo cache format.
             self._cached_photos[str(stored["mmsi"])] = dict(stored)
+        self._photo_records.update(self._cached_photos)
 
         current_ship = self.tracker.last_ships.get(self.area_id)
         if current_ship:
@@ -238,7 +240,7 @@ class ShipPhotoCoordinator:
         """Restore one cached MMSI photo into the active camera state."""
         if not mmsi:
             return False
-        stored = self._cached_photos.get(mmsi)
+        stored = self._photo_records.get(mmsi)
         if not stored:
             return False
 
@@ -247,6 +249,7 @@ class ShipPhotoCoordinator:
         except (TypeError, ValueError):
             _LOGGER.warning("Ignoring invalid cached AIS photo for MMSI %s", mmsi)
             self._cached_photos.pop(mmsi, None)
+            self._photo_records.pop(mmsi, None)
             return False
         if not image:
             return False
@@ -308,6 +311,16 @@ class ShipPhotoCoordinator:
     def content_type(self) -> str:
         """Return the cached image content type."""
         return self._content_type
+
+    def photo_for_mmsi(self, mmsi: object) -> dict[str, Any] | None:
+        """Return photo metadata collected for an MMSI, if available."""
+        value = str(mmsi).strip() if mmsi is not None else ""
+        if not value:
+            return None
+        photo = self._photo_records.get(value)
+        if photo is None or not photo.get("photo_url"):
+            return None
+        return photo
 
     @property
     def vessel_name(self) -> str:
@@ -623,8 +636,15 @@ class ShipPhotoCoordinator:
                     self._photo_url = photo_url
                     self._last_updated = datetime.now(UTC)
                     self._photo_cacheable = photo_cacheable
+                    photo_data = self._current_photo_data()
+                    if photo_cacheable:
+                        self._photo_records[mmsi] = {
+                            key: value
+                            for key, value in photo_data.items()
+                            if key != "image"
+                        }
                     if self._cache_photos and photo_cacheable:
-                        self._cached_photos[mmsi] = self._current_photo_data()
+                        self._cached_photos[mmsi] = photo_data
                         await self._store.async_save(self._stored_data())
                     _LOGGER.debug(
                         "Updated %s photo for %s (%s) via %s",

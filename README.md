@@ -132,6 +132,11 @@ the MMSI. When a vessel expires from the map
 timeout or is evicted by the limit, its entity and entity-registry entry are
 removed; it will be recreated if it is observed again.
 
+When a vessel photo has already been collected, its map sensor also exposes
+the standard Home Assistant `entity_picture` attribute and a `picture_url`
+attribute. The map card can use `entity_picture` to render that vessel's
+photo; vessels without a collected photo continue to use their AIS icon.
+
 Photo cameras include the current vessel's AIS attributes, the photo provider,
 source URL, photographer, and credit page, the generated `search_query` and
 `search_url`, and any lookup error as camera attributes. The last-passing-ship

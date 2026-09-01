@@ -15,6 +15,7 @@ from homeassistant.helpers.event import async_track_time_change
 
 from . import AisShipTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
+from .coordinator import ShipPhotoCoordinator
 from .entity import (
     AisShipTrackerEntity,
     marine_traffic_url,
@@ -52,7 +53,9 @@ async def async_setup_entry(
     known: dict[str, AisMapShipSensor] = {}
     if tracker.map_entities_enabled:
         for mmsi, ship in tracker.ships.items():
-            known[mmsi] = AisMapShipSensor(entry, tracker, mmsi, ship)
+            known[mmsi] = AisMapShipSensor(
+                entry, tracker, mmsi, ship, tuple(entry.runtime_data.photos.values())
+            )
         entities.extend(known.values())
     async_add_entities(entities)
 
@@ -86,7 +89,13 @@ async def async_setup_entry(
         new_entities = []
         for mmsi, ship in tracker.ships.items():
             if mmsi not in known:
-                known[mmsi] = AisMapShipSensor(entry, tracker, mmsi, ship)
+                known[mmsi] = AisMapShipSensor(
+                    entry,
+                    tracker,
+                    mmsi,
+                    ship,
+                    tuple(entry.runtime_data.photos.values()),
+                )
                 new_entities.append(known[mmsi])
         if new_entities:
             async_add_entities(new_entities)
@@ -275,6 +284,7 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         coordinator: AisTrackerCoordinator,
         mmsi: str,
         ship: dict[str, Any],
+        photos: tuple[ShipPhotoCoordinator, ...],
     ) -> None:
         """Initialize a vessel map sensor."""
         super().__init__(entry)
@@ -283,6 +293,20 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         self._attr_unique_id = f"ais_ship_{mmsi}"
         self._attr_suggested_object_id = f"ais_ship_{mmsi}"
         self._ship = ship
+        self._photos = photos
+
+    def _photo(self) -> dict[str, Any] | None:
+        """Return the first collected photo matching this vessel."""
+        for photo in self._photos:
+            if photo_data := photo.photo_for_mmsi(self.mmsi):
+                return photo_data
+        return None
+
+    @property
+    def entity_picture(self) -> str | None:
+        """Return the collected vessel photo URL for map markers."""
+        photo = self._photo()
+        return str(photo["photo_url"]) if photo else None
 
     @property
     def name(self) -> str:
@@ -312,6 +336,12 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         url = marine_traffic_url(attributes.get("marine_traffic_ship_id"))
         if url:
             attributes["marinetraffic_url"] = url
+        if photo := self._photo():
+            attributes["picture_url"] = photo.get("photo_url")
+            attributes["photo_origin"] = photo.get("provider")
+            attributes["photo_author"] = photo.get("photo_author")
+            attributes["photo_credit_url"] = photo.get("photo_credit_url")
+            attributes["photo_last_updated"] = photo.get("last_updated")
         return attributes
 
     async def async_added_to_hass(self) -> None:
@@ -321,6 +351,13 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
             await _async_remove_map_entity(self.hass, self)
             return
         self.async_on_remove(self.coordinator.async_add_listener(self._updated))
+        for photo in self._photos:
+            self.async_on_remove(photo.async_add_listener(self._photo_updated))
+
+    @callback
+    def _photo_updated(self) -> None:
+        """Refresh this vessel when a matching photo lookup completes."""
+        self.async_write_ha_state()
 
     @callback
     def _updated(self) -> None:
