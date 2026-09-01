@@ -32,6 +32,9 @@ CONF_SEARXNG_USERNAME = "searxng_username"
 CONF_SEARXNG_PASSWORD = "searxng_password"
 CONF_CACHE_PHOTOS = "cache_photos"
 
+ATTR_MMSI = "mmsi"
+SERVICE_REFRESH_VESSEL_PHOTO = "refresh_vessel_photo"
+
 ISSUE_SEARXNG_AUTHENTICATION = "searxng_authentication"
 ISSUE_SEARXNG_ENDPOINT = "searxng_endpoint"
 ISSUE_AIS_AUTHENTICATION = "ais_authentication"

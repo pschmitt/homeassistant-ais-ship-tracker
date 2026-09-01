@@ -329,7 +329,7 @@ class ShipPhotoCoordinator:
     def image_for_mmsi(self, mmsi: object) -> tuple[bytes, str] | None:
         """Return collected image bytes and their content type for an MMSI."""
         value = str(mmsi).strip() if mmsi is not None else ""
-        if not value:
+        if not value or value not in self._photo_records:
             return None
         return self._photo_images.get(value)
 
@@ -645,13 +645,13 @@ class ShipPhotoCoordinator:
                     self._content_type = content_type.split(";", 1)[0]
                     if not self._content_type.lower().startswith("image/"):
                         self._content_type = "image/jpeg"
-                    self._photo_images[mmsi] = (image, self._content_type)
                     self._provider = provider
                     self._photo_url = photo_url
                     self._last_updated = datetime.now(UTC)
                     self._photo_cacheable = photo_cacheable
                     photo_data = self._current_photo_data()
                     if photo_cacheable:
+                        self._photo_images[mmsi] = (image, self._content_type)
                         self._photo_records[mmsi] = {
                             key: value
                             for key, value in photo_data.items()

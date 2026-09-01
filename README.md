@@ -140,6 +140,13 @@ on the original photo host being reachable from the browser. The original
 provider URL is retained as `photo_source_url`. Vessels without a collected
 photo continue to use their AIS icon.
 
+Use the `ais_ship_tracker.refresh_vessel_photo` service to force a fresh
+lookup. Target one or more AIS vessel sensors for normal use, provide a
+nine-digit `mmsi` for an automation-friendly stable identifier, or leave both
+empty to refresh all currently known vessels. The service uses the configured
+SearXNG/VesselFinder/MarineTraffic lookup path and never creates synthetic
+images.
+
 Photo cameras include the current vessel's AIS attributes, the photo provider,
 source URL, photographer, and credit page, the generated `search_query` and
 `search_url`, and any lookup error as camera attributes. The last-passing-ship

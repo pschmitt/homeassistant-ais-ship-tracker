@@ -1,0 +1,16 @@
+refresh_vessel_photo:
+  name: Refresh vessel photo
+  description: >-
+    Force a fresh photo lookup for targeted vessel sensors, one MMSI, or all
+    currently known vessels when no target or MMSI is provided.
+  target:
+    entity:
+      integration: ais_ship_tracker
+      domain: sensor
+  fields:
+    mmsi:
+      name: MMSI
+      description: Leave empty to use the target or refresh all known vessels.
+      example: "211890880"
+      selector:
+        text:

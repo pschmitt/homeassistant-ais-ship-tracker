@@ -18,6 +18,7 @@ from homeassistant.helpers.issue_registry import IssueSeverity
 
 from .areas import area_id, area_name, configured_areas
 from .const import (
+    ATTR_MMSI,
     CONF_AREAS,
     CONF_CACHE_PHOTOS,
     CONF_LATITUDE_NORTH,
@@ -32,6 +33,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import ShipPhotoCoordinator
+from .services import async_setup_services
 from .tracker import AisTrackerCoordinator
 from .zone import async_remove_zones, async_sync_zones
 
@@ -149,6 +151,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up the integration domain."""
     del config
     hass.http.register_view(AisShipPhotoView())
+    async_setup_services(hass)
     return True
 
 
@@ -225,7 +228,11 @@ async def async_setup_entry(
     entry.async_on_unload(tracker.async_add_listener(tracker_updated))
 
     for photo in photos.values():
-        if photo.available:
+        current_ship = tracker.last_ships.get(photo.area_id)
+        current_mmsi = (
+            str(current_ship.get(ATTR_MMSI) or "") if current_ship else ""
+        )
+        if current_mmsi and photo.image_for_mmsi(current_mmsi) is not None:
             continue
         entry.async_create_background_task(
             hass, photo.async_refresh(), "ais_ship_tracker_initial_refresh"

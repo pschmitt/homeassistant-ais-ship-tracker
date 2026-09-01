@@ -1,0 +1,133 @@
+"""Services for AIS Ship Tracker."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Any
+
+import voluptuous as vol
+from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
+
+from .const import ATTR_MMSI, DOMAIN, SERVICE_REFRESH_VESSEL_PHOTO
+
+_LOGGER = logging.getLogger(__name__)
+
+SERVICE_REFRESH_VESSEL_PHOTO_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_ENTITY_ID): cv.entity_ids,
+        vol.Optional(ATTR_MMSI): vol.All(cv.string, vol.Match(r"^\d{9}$")),
+    }
+)
+
+
+def _known_ships(tracker: Any) -> dict[str, dict[str, Any]]:
+    """Return currently known vessels, keyed by MMSI."""
+    ships: dict[str, dict[str, Any]] = {}
+    for ship in tracker.ships.values():
+        if mmsi := str(ship.get(ATTR_MMSI) or ""):
+            ships[mmsi] = ship
+    for ship in tracker.last_ships.values():
+        if mmsi := str(ship.get(ATTR_MMSI) or ""):
+            ships.setdefault(mmsi, ship)
+    return ships
+
+
+def _target_mmsis(hass: HomeAssistant, entity_ids: list[str]) -> set[str]:
+    """Resolve targeted AIS entities to their current MMSIs."""
+    registry = er.async_get(hass)
+    mmsis: set[str] = set()
+    invalid_entities: list[str] = []
+    for entity_id in entity_ids:
+        registry_entry = registry.async_get(entity_id)
+        state = hass.states.get(entity_id)
+        mmsi = str(state.attributes.get(ATTR_MMSI) or "") if state else ""
+        if (
+            registry_entry is None
+            or registry_entry.platform != DOMAIN
+            or not mmsi.isdigit()
+            or len(mmsi) != 9
+        ):
+            invalid_entities.append(entity_id)
+            continue
+        mmsis.add(mmsi)
+    if invalid_entities:
+        raise ServiceValidationError(
+            "Only AIS vessel sensors with a current nine-digit MMSI can be targeted: "
+            + ", ".join(invalid_entities)
+        )
+    return mmsis
+
+
+async def _async_refresh_vessel_photo(call: ServiceCall) -> None:
+    """Refresh one vessel photo, targeted vessels, or all known photos."""
+    requested_mmsi = call.data.get(ATTR_MMSI)
+    entity_ids = call.data.get(ATTR_ENTITY_ID, [])
+    target_mmsis = _target_mmsis(call.hass, entity_ids) if entity_ids else set()
+    if requested_mmsi is not None and target_mmsis:
+        raise ServiceValidationError(
+            "Specify either an AIS vessel target or an MMSI, not both"
+        )
+
+    selected_mmsis = target_mmsis or (
+        {requested_mmsi} if requested_mmsi is not None else None
+    )
+    refresh_tasks = []
+    found_mmsis: set[str] = set()
+
+    for entry in call.hass.config_entries.async_entries(DOMAIN):
+        runtime = entry.runtime_data
+        if runtime is None:
+            continue
+        known_ships = _known_ships(runtime.tracker)
+        ships = (
+            known_ships
+            if selected_mmsis is None
+            else {
+                mmsi: known_ships[mmsi]
+                for mmsi in selected_mmsis
+                if mmsi in known_ships
+            }
+        )
+        found_mmsis.update(ships)
+        for photo in runtime.photos.values():
+            refresh_tasks.extend(
+                photo.async_refresh(force=True, ship_override=ship)
+                for ship in ships.values()
+            )
+
+    if selected_mmsis is not None and found_mmsis != selected_mmsis:
+        missing = ", ".join(sorted(selected_mmsis - found_mmsis))
+        raise ServiceValidationError(f"No known AIS vessel has MMSI {missing}")
+    if not refresh_tasks:
+        raise ServiceValidationError(
+            "No known AIS vessels or configured photo lookup service"
+        )
+
+    if requested_mmsi:
+        scope = f" for MMSI {requested_mmsi}"
+    elif selected_mmsis:
+        scope = f" for {len(selected_mmsis)} targeted vessel(s)"
+    else:
+        scope = " for all known vessels"
+    _LOGGER.info("Refreshing AIS vessel photo(s)%s", scope)
+    results = await asyncio.gather(*refresh_tasks, return_exceptions=True)
+    errors = [result for result in results if isinstance(result, Exception)]
+    if errors:
+        _LOGGER.warning(
+            "AIS vessel photo refresh completed with %d error(s)", len(errors)
+        )
+
+
+def async_setup_services(hass: HomeAssistant) -> None:
+    """Register AIS Ship Tracker services."""
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REFRESH_VESSEL_PHOTO,
+        _async_refresh_vessel_photo,
+        schema=SERVICE_REFRESH_VESSEL_PHOTO_SCHEMA,
+    )
