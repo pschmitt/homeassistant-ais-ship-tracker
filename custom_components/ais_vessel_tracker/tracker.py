@@ -14,6 +14,7 @@ from aiohttp import WSMsgType
 from homeassistant.components import mqtt
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -40,6 +41,11 @@ _AISHUB_POSITION_AGE_MINUTES = 5
 # handled below so older installs do not require a Store migration callback.
 _STORE_VERSION = 1
 _RECONNECT_DELAY = 10
+# How often stale map vessels are purged. Runs on its own timer rather than
+# as a side effect of the AISStream loop, so a stuck or disconnected
+# AISStream (or a deployment with it disabled entirely) doesn't also stop
+# map cleanup for the other sources.
+_PURGE_INTERVAL = timedelta(seconds=60)
 # AISStream raises its own more specific authentication/connection repairs
 # (see _create_authentication_issue/_create_connection_issue below), so only
 # the other, optional sources get the generic "source unavailable" repair.
@@ -137,6 +143,7 @@ class AisTrackerCoordinator:
         self._task: asyncio.Task[None] | None = None
         self._aishub_task: asyncio.Task[None] | None = None
         self._mqtt_unsub: Callable[[], None] | None = None
+        self._purge_unsub: Callable[[], None] | None = None
         self._stopping = False
 
     @property
@@ -275,6 +282,9 @@ class AisTrackerCoordinator:
             self._aishub_task = self.hass.async_create_task(
                 self._run_aishub(), name=f"{DOMAIN}_{self.entry_id}_aishub"
             )
+        self._purge_unsub = async_track_time_interval(
+            self.hass, self._handle_purge_interval, _PURGE_INTERVAL
+        )
 
     async def async_restart(self) -> None:
         """Restart the subscription after a source zone changes."""
@@ -287,6 +297,9 @@ class AisTrackerCoordinator:
         if self._mqtt_unsub is not None:
             self._mqtt_unsub()
             self._mqtt_unsub = None
+        if self._purge_unsub is not None:
+            self._purge_unsub()
+            self._purge_unsub = None
         for task_name in ("_task", "_aishub_task"):
             task = getattr(self, task_name)
             if task is None:
@@ -456,7 +469,6 @@ class AisTrackerCoordinator:
                 try:
                     message = await websocket.receive(timeout=60)
                 except asyncio.TimeoutError:
-                    self._purge_old_vessels()
                     continue
                 if message.type in {WSMsgType.TEXT, WSMsgType.BINARY}:
                     payload = (
@@ -488,7 +500,6 @@ class AisTrackerCoordinator:
                         "AISStream websocket closed "
                         f"(code={websocket.close_code}, exception={websocket.exception()})"
                     )
-                self._purge_old_vessels()
 
     def _handle_message(self, message: dict[str, Any]) -> None:
         """Handle one AISStream message."""
@@ -732,6 +743,12 @@ class AisTrackerCoordinator:
         if updated:
             self.hass.async_create_task(self._store.async_save(self._stored_data()))
             self._notify()
+
+    @callback
+    def _handle_purge_interval(self, now: datetime) -> None:
+        """Run the periodic stale-vessel purge, independent of any source."""
+        del now
+        self._purge_old_vessels()
 
     def _purge_old_vessels(self) -> None:
         """Remove map vessels that have not reported recently."""
