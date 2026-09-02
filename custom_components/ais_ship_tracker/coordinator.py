@@ -241,20 +241,33 @@ class ShipPhotoCoordinator:
         if not stored:
             return False
 
-        try:
-            image = base64.b64decode(str(stored["image"]), validate=True)
-        except (TypeError, ValueError):
-            _LOGGER.warning("Ignoring invalid cached AIS photo for MMSI %s", mmsi)
-            self._cached_photos.pop(mmsi, None)
-            self._photo_records.pop(mmsi, None)
-            return False
-        if not image:
-            return False
+        cached_image = self._photo_images.get(mmsi)
+        if cached_image is not None:
+            # Already decoded, either by an earlier fetch this session or by
+            # a previous restore. async_refresh() strips the base64 "image"
+            # field from _photo_records once it has decoded bytes here, so
+            # this is the only path for an MMSI whose photo was refreshed
+            # (not just restored) at least once this session.
+            image, content_type = cached_image
+        else:
+            raw_image = stored.get("image")
+            if not raw_image:
+                return False
+            try:
+                image = base64.b64decode(str(raw_image), validate=True)
+            except (TypeError, ValueError):
+                _LOGGER.warning("Ignoring invalid cached AIS photo for MMSI %s", mmsi)
+                self._cached_photos.pop(mmsi, None)
+                self._photo_records.pop(mmsi, None)
+                return False
+            if not image:
+                return False
+            content_type = str(stored.get("content_type") or "image/jpeg")
+            if not content_type.lower().startswith("image/"):
+                content_type = "image/jpeg"
 
         self._image = image
-        self._content_type = str(stored.get("content_type") or "image/jpeg")
-        if not self._content_type.lower().startswith("image/"):
-            self._content_type = "image/jpeg"
+        self._content_type = content_type
         self._photo_images[mmsi] = (image, self._content_type)
         self._mmsi = mmsi
         self._marine_traffic_ship_id = str(

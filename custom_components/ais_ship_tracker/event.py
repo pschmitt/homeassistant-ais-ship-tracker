@@ -102,6 +102,15 @@ class LastShipUpdatedEvent(AisShipTrackerEntity, EventEntity):
                         "Timed out waiting for the photo lookup for MMSI %s",
                         mmsi,
                     )
+                except Exception:  # noqa: BLE001
+                    # The photo lookup is a best-effort enhancement; firing
+                    # this event is the entity's actual job and must not be
+                    # skipped just because that lookup broke.
+                    _LOGGER.exception(
+                        "Photo lookup failed for MMSI %s while updating the "
+                        "last-passing-ship event",
+                        mmsi,
+                    )
             marine_ship_id = ship.get("marine_traffic_ship_id")
             if photo is not None:
                 marine_ship_id = photo.marine_traffic_ship_id or marine_ship_id
