@@ -44,6 +44,11 @@ _RECONNECT_DELAY = 10
 # (see _create_authentication_issue/_create_connection_issue below), so only
 # the other, optional sources get the generic "source unavailable" repair.
 _ISSUE_ELIGIBLE_SOURCES = frozenset({SOURCE_LOCAL_MQTT, SOURCE_AISHUB})
+# AISHub's rate limit is tracked server-side per account, not per running
+# task, and does not reset just because a config-entry reload tore down and
+# recreated the polling task. Track the last request per username at module
+# scope so it survives a reload within the same HA process.
+_aishub_last_request: dict[str, datetime] = {}
 # Minimum time between last-passing-vessel handoffs to a *different* vessel.
 # Without this, several vessels reporting positions around the same time
 # would make the last-passing-vessel sensor and its photo lookup flip-flop
@@ -332,6 +337,7 @@ class AisTrackerCoordinator:
     async def _run_aishub(self) -> None:
         """Poll the AISHub API without exceeding its published rate limit."""
         while not self._stopping:
+            await self._wait_for_aishub_slot()
             try:
                 observations = await self._fetch_aishub()
                 self._set_source_status(SOURCE_AISHUB, "Connected")
@@ -344,6 +350,25 @@ class AisTrackerCoordinator:
                 self._set_source_status(SOURCE_AISHUB, "Unavailable", message)
                 _LOGGER.warning("AISHub source unavailable: %s", message)
             await asyncio.sleep(_AISHUB_POLL_INTERVAL)
+
+    async def _wait_for_aishub_slot(self) -> None:
+        """Wait out any time left since this AISHub account's last request.
+
+        Without this, a config-entry reload (e.g. editing the tracking
+        area) tears down and recreates this task, which would otherwise
+        poll again immediately -- even though AISHub's rate limit did not
+        reset, turning a routine reload into a spurious "source
+        unavailable" repair.
+        """
+        username = self.aishub_username
+        last = _aishub_last_request.get(username)
+        if last is not None:
+            remaining = _AISHUB_POLL_INTERVAL - (
+                datetime.now(UTC) - last
+            ).total_seconds()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+        _aishub_last_request[username] = datetime.now(UTC)
 
     async def _fetch_aishub(self) -> list[AisObservation]:
         """Fetch recent AISHub positions for the configured tracking areas."""
