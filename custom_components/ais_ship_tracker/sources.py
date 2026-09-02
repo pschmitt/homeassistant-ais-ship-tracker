@@ -18,6 +18,12 @@ SOURCE_LABELS = {
     SOURCE_AISHUB: "AISHub",
 }
 
+# AIS message types that report a station or object rather than a vessel:
+# 4/11 base station (and its UTC/date response), 9 SAR aircraft, 21
+# aid-to-navigation. AISStream's own message-type filter already excludes
+# these; AIS-catcher's JSON_FULL feed does not, so they are dropped here.
+_NON_VESSEL_MESSAGE_TYPES = frozenset({4, 9, 11, 21})
+
 
 def source_label(source: object) -> str | None:
     """Return a human-readable label for a normalized source identifier."""
@@ -67,6 +73,10 @@ def parse_aiscatcher_message(
     if mmsi is None:
         return None
 
+    message_type = _int(payload.get("type"))
+    if message_type in _NON_VESSEL_MESSAGE_TYPES:
+        return None
+
     static_data = _static_data_from_aiscatcher(payload)
     return AisObservation(
         source=SOURCE_LOCAL_MQTT,
@@ -83,7 +93,7 @@ def parse_aiscatcher_message(
         call_sign=static_data.get("call_sign"),
         imo_number=static_data.get("imo_number"),
         navigational_status=_int(payload.get("status")),
-        message_type=_int(payload.get("type")),
+        message_type=message_type,
         source_timestamp=_aiscatcher_timestamp(payload),
         raw_nmea=_nmea(payload.get("nmea")),
         static_data=static_data,
