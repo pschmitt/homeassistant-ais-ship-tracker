@@ -233,6 +233,49 @@ class VesselPhotoCoordinator:
         if current_vessel:
             self._restore_cached_photo(str(current_vessel.get("mmsi") or ""))
 
+    def _decode_cached_image(self, mmsi: str) -> tuple[bytes, str] | None:
+        """Return an MMSI's image bytes, decoding and caching them on demand.
+
+        Only the last-passing vessel's photo is decoded eagerly on startup
+        (see async_restore); every other MMSI's payload sits in
+        _photo_records as base64 until something actually asks for its
+        image (entity_picture, the photo view, or a later restore call),
+        at which point it is decoded once and kept in _photo_images.
+        """
+        cached_image = self._photo_images.get(mmsi)
+        if cached_image is not None:
+            return cached_image
+        stored = self._photo_records.get(mmsi)
+        if not stored:
+            return None
+        raw_image = stored.get("image")
+        if not raw_image:
+            return None
+        try:
+            image = base64.b64decode(str(raw_image), validate=True)
+        except (TypeError, ValueError):
+            _LOGGER.warning("Ignoring invalid cached AIS photo for MMSI %s", mmsi)
+            self._cached_photos.pop(mmsi, None)
+            self._photo_records.pop(mmsi, None)
+            return None
+        if not image:
+            return None
+        content_type = str(stored.get("content_type") or "image/jpeg")
+        if not content_type.lower().startswith("image/"):
+            content_type = "image/jpeg"
+        self._photo_images[mmsi] = (image, content_type)
+        # Match the shape async_refresh() leaves behind after a live fetch:
+        # metadata only, no base64 blob duplicated in memory. Reassign
+        # rather than mutate `stored` in place -- after async_restore(),
+        # _photo_records[mmsi] and _cached_photos[mmsi] are the *same*
+        # dict object, and _cached_photos is what gets persisted back to
+        # the store, so popping "image" off `stored` would silently strip
+        # it from the on-disk cache too.
+        self._photo_records[mmsi] = {
+            key: value for key, value in stored.items() if key != "image"
+        }
+        return self._photo_images[mmsi]
+
     def _restore_cached_photo(self, mmsi: str) -> bool:
         """Restore one cached MMSI photo into the active vessel state."""
         if not mmsi:
@@ -240,35 +283,13 @@ class VesselPhotoCoordinator:
         stored = self._photo_records.get(mmsi)
         if not stored:
             return False
-
-        cached_image = self._photo_images.get(mmsi)
-        if cached_image is not None:
-            # Already decoded, either by an earlier fetch this session or by
-            # a previous restore. async_refresh() strips the base64 "image"
-            # field from _photo_records once it has decoded bytes here, so
-            # this is the only path for an MMSI whose photo was refreshed
-            # (not just restored) at least once this session.
-            image, content_type = cached_image
-        else:
-            raw_image = stored.get("image")
-            if not raw_image:
-                return False
-            try:
-                image = base64.b64decode(str(raw_image), validate=True)
-            except (TypeError, ValueError):
-                _LOGGER.warning("Ignoring invalid cached AIS photo for MMSI %s", mmsi)
-                self._cached_photos.pop(mmsi, None)
-                self._photo_records.pop(mmsi, None)
-                return False
-            if not image:
-                return False
-            content_type = str(stored.get("content_type") or "image/jpeg")
-            if not content_type.lower().startswith("image/"):
-                content_type = "image/jpeg"
+        decoded = self._decode_cached_image(mmsi)
+        if decoded is None:
+            return False
+        image, content_type = decoded
 
         self._image = image
         self._content_type = content_type
-        self._photo_images[mmsi] = (image, self._content_type)
         self._mmsi = mmsi
         self._marine_traffic_vessel_id = str(
             stored.get("marine_traffic_vessel_id") or ""
@@ -382,7 +403,7 @@ class VesselPhotoCoordinator:
         value = str(mmsi).strip() if mmsi is not None else ""
         if not value or value not in self._photo_records:
             return None
-        return self._photo_images.get(value)
+        return self._decode_cached_image(value)
 
     @property
     def vessel_name(self) -> str:
