@@ -43,6 +43,11 @@ _RECONNECT_DELAY = 10
 # (see _create_authentication_issue/_create_connection_issue below), so only
 # the other, optional sources get the generic "source unavailable" repair.
 _ISSUE_ELIGIBLE_SOURCES = frozenset({SOURCE_LOCAL_MQTT, SOURCE_AISHUB})
+# Minimum time between last-passing-ship handoffs to a *different* vessel.
+# Without this, several vessels reporting positions around the same time
+# would make the last-passing-ship sensor and its photo lookup flip-flop
+# between them instead of settling on whichever is genuinely most current.
+_LAST_SHIP_DEBOUNCE = timedelta(minutes=3)
 
 _NAV_STATUS = {
     0: "Under way using engine",
@@ -118,6 +123,7 @@ class AisTrackerCoordinator:
         self.source_errors: dict[str, str] = {}
         self.source_last_message: dict[str, str] = {}
         self._seen_mmsis_by_area: dict[str, set[str]] = {}
+        self._last_ship_switch: dict[str, datetime] = {}
         self._listeners: list[Callable[[], None]] = []
         self._store = Store(
             hass, _STORE_VERSION, f"{DOMAIN}.last_passing_ship_{entry_id}"
@@ -517,24 +523,33 @@ class AisTrackerCoordinator:
             observation.latitude, observation.longitude
         ):
             seen_mmsis = self._seen_mmsis_by_area.setdefault(tracking_area_id, set())
-            if observation.mmsi in seen_mmsis:
-                if (
-                    observation.source == SOURCE_LOCAL_MQTT
-                    and self.last_ships.get(tracking_area_id, {}).get("source")
-                    != SOURCE_LOCAL_MQTT
-                ):
-                    self.last_ships[tracking_area_id] = public_ship
-                    stored = True
+            if observation.mmsi not in seen_mmsis:
+                seen_mmsis.add(observation.mmsi)
+                self.ship_sightings.setdefault(tracking_area_id, []).append(
+                    {
+                        "mmsi": observation.mmsi,
+                        "spotted_time": public_ship["spotted_time"],
+                    }
+                )
+                stored = True
+
+            current_ship = self.last_ships.get(tracking_area_id)
+            if current_ship is not None and current_ship.get("mmsi") == observation.mmsi:
+                # The vessel already shown as last-passing just reported a
+                # newer position: keep it live without writing to the store
+                # on every single update, which could be every few seconds.
+                self.last_ships[tracking_area_id] = public_ship
                 continue
-            seen_mmsis.add(observation.mmsi)
-            self.last_ships[tracking_area_id] = public_ship
-            self.ship_sightings.setdefault(tracking_area_id, []).append(
-                {
-                    "mmsi": observation.mmsi,
-                    "spotted_time": public_ship["spotted_time"],
-                }
-            )
-            stored = True
+
+            last_switch = self._last_ship_switch.get(tracking_area_id)
+            if (
+                current_ship is None
+                or last_switch is None
+                or now - last_switch >= _LAST_SHIP_DEBOUNCE
+            ):
+                self.last_ships[tracking_area_id] = public_ship
+                self._last_ship_switch[tracking_area_id] = now
+                stored = True
         if stored:
             self._purge_old_sightings()
             self.hass.async_create_task(self._store.async_save(self._stored_data()))

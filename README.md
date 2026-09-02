@@ -93,9 +93,12 @@ accepts 5 minutes to 24 hours. Stale entities are removed from both Home
 Assistant and the entity registry, and are recreated if the vessel is observed
 again. Individual map entities are not restored after a Home Assistant restart.
 
-The per-area `Last Passing Ship` entities are different: they retain the most
-recently detected vessel indefinitely and restore it after a restart. They are
-replaced when another vessel is detected and removed when the integration or
+The per-area `Last Passing Ship` entities are different: they retain the
+vessel with the most recent position report indefinitely and restore it
+after a restart. Its position, speed, and course keep updating live while it
+remains the most recent; handing the slot to a different vessel is debounced
+by three minutes so several vessels reporting around the same time don't
+make it flip-flop between them. They are removed when the integration or
 tracking area is removed.
 
 SearXNG is optional. When configured, the integration searches for the vessel
@@ -129,9 +132,9 @@ The integration creates these entities for every configured tracking area:
 - `sensor.ais_ship_tracker_<area>_ships_today` and
   `sensor.ais_ship_tracker_<area>_ships_this_hour` — distinct MMSI counts for
   the local calendar day and rolling last 3,600 seconds.
-- `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated` for
-  each newly detected MMSI in that area after its optional photo lookup
-  completes, with a bounded 45-second wait.
+- `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated`
+  each time a different vessel becomes that area's last-passing-ship, after
+  its optional photo lookup completes, with a bounded 45-second wait.
 - `sensor.ais_ship_tracker_<area>_last_passing_ship` — the latest vessel and,
   when available, its photo through the standard `entity_picture` attribute
   and the matching `picture_url` attribute.
