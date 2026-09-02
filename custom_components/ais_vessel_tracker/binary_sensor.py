@@ -66,12 +66,26 @@ class SourceConnectionSensor(AisVesselTrackerEntity, BinarySensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the raw status, last error, and last message time."""
-        return {
+        """Return the raw status, last error, and source-specific debug data."""
+        attributes: dict[str, Any] = {
             "status": self.coordinator.source_status.get(self.source),
             "error": self.coordinator.source_errors.get(self.source),
             "last_message": self.coordinator.source_last_message.get(self.source),
+            "vessel_count": sum(
+                1
+                for vessel in self.coordinator.vessels.values()
+                if vessel.get("source") == self.source
+            ),
         }
+        if self.source == SOURCE_LOCAL_MQTT:
+            attributes["topic"] = self.coordinator.local_mqtt_topic
+        elif self.source == SOURCE_AISHUB:
+            attributes["poll_interval_seconds"] = (
+                self.coordinator.aishub_poll_interval_seconds
+            )
+        elif self.source == SOURCE_AISSTREAM and self.coordinator.vessel_watchlist:
+            attributes["vessel_watchlist"] = self.coordinator.vessel_watchlist
+        return attributes
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""

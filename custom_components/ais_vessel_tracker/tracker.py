@@ -182,6 +182,11 @@ class AisTrackerCoordinator:
         return bool(self.settings.get(CONF_AISHUB_ENABLED, False))
 
     @property
+    def aishub_poll_interval_seconds(self) -> int:
+        """Return how often AISHub is polled, in seconds."""
+        return _AISHUB_POLL_INTERVAL
+
+    @property
     def aishub_username(self) -> str:
         """Return the configured AISHub username/API credential."""
         return str(self.settings.get(CONF_AISHUB_USERNAME, "")).strip()

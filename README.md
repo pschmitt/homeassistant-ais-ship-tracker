@@ -140,9 +140,12 @@ The integration creates these entities for every configured tracking area:
   and the matching `picture_url` attribute.
 - `binary_sensor.ais_vessel_tracker_<source>_connection` — one diagnostic
   connectivity sensor per enabled AIS source (AISStream, AIS-catcher, AISHub),
-  `on` while that source is connected. Its `status`, `error`, and
-  `last_message` attributes carry the same detail the old combined
-  `AIS Connection Status` sensor exposed.
+  `on` while that source is connected. Its `status`, `error`, `last_message`,
+  and `vessel_count` (currently tracked vessels whose latest report came from
+  that source) attributes carry the same detail the old combined
+  `AIS Connection Status` sensor exposed, plus a per-source breakdown. AIS-catcher's
+  sensor also exposes `topic`, AISHub's exposes `poll_interval_seconds`, and
+  AISStream's exposes `vessel_watchlist` when one is configured.
 - `zone.ais_vessel_tracking_area` and one additional passive zone per configured
   area — map representations of the selected Home Assistant source zones.
 
