@@ -1,8 +1,8 @@
-"""Constants for the AIS Ship Tracker integration."""
+"""Constants for the AIS Vessel Tracker integration."""
 
 from __future__ import annotations
 
-DOMAIN = "ais_ship_tracker"
+DOMAIN = "ais_vessel_tracker"
 PLATFORMS = ["sensor", "event", "binary_sensor"]
 
 CONF_API_KEY = "api_key"
@@ -43,4 +43,4 @@ ISSUE_AIS_AUTHENTICATION = "ais_authentication"
 ISSUE_AIS_CONNECTION = "ais_connection"
 ISSUE_SOURCE_UNAVAILABLE = "source_unavailable"
 
-ZONE_NAME = "AIS Ship Tracking Area"
+ZONE_NAME = "AIS Vessel Tracking Area"

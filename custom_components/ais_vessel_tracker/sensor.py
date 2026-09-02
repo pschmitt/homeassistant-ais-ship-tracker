@@ -1,4 +1,4 @@
-"""Sensor platform for AIS Ship Tracker."""
+"""Sensor platform for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_change
 
-from . import AisShipTrackerConfigEntry
+from . import AisVesselTrackerConfigEntry
 from .areas import area_id, area_name, area_slug, configured_areas
-from .coordinator import ShipPhotoCoordinator
+from .coordinator import VesselPhotoCoordinator
 from .entity import (
-    AisShipTrackerEntity,
+    AisVesselTrackerEntity,
     marine_traffic_url,
     remove_legacy_entities,
     vessel_finder_url,
@@ -40,16 +40,16 @@ def _add_source_attributes(attributes: dict[str, Any]) -> None:
 
 def _trigger_map_photo_lookup(
     hass: HomeAssistant,
-    entry: AisShipTrackerConfigEntry,
+    entry: AisVesselTrackerConfigEntry,
     mmsi: str,
-    ship: dict[str, Any],
+    vessel: dict[str, Any],
 ) -> None:
     """Kick off a one-shot background photo lookup for a new map vessel.
 
-    Map vessels otherwise never get a photo: ShipPhotoCoordinator.async_refresh
+    Map vessels otherwise never get a photo: VesselPhotoCoordinator.async_refresh
     is normally only triggered for whichever vessel becomes an area's
-    last-passing-ship. Any one area's coordinator is enough since map sensors
-    check every area's cache for a match (see AisMapShipSensor._photo).
+    last-passing-vessel. Any one area's coordinator is enough since map sensors
+    check every area's cache for a match (see AisMapVesselSensor._photo).
     """
     photos = tuple(entry.runtime_data.photos.values())
     if not photos:
@@ -59,50 +59,50 @@ def _trigger_map_photo_lookup(
         return
     entry.async_create_background_task(
         hass,
-        photo.async_refresh(ship_override=ship),
-        f"ais_ship_tracker_map_photo_{mmsi}",
+        photo.async_refresh(vessel_override=vessel),
+        f"ais_vessel_tracker_map_photo_{mmsi}",
     )
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: AisShipTrackerConfigEntry,
+    entry: AisVesselTrackerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the persistent and optional map sensors."""
     tracker = entry.runtime_data.tracker
     areas = configured_areas(tracker.settings)
-    remove_legacy_entities(hass, entry, {"last_passing_ship", "ais_connection_status"})
+    remove_legacy_entities(hass, entry, {"last_passing_vessel", "ais_connection_status"})
     remove_legacy_entities(
         hass,
         entry,
         {
-            f"last_passing_ship_photo_{area_id(area, index)}"
+            f"last_passing_vessel_photo_{area_id(area, index)}"
             for index, area in enumerate(areas, 1)
         },
     )
     photos = tuple(entry.runtime_data.photos.values())
     entities: list[SensorEntity] = []
     entities.extend(
-        LastPassingShipSensor(entry, area, index, photos)
+        LastPassingVesselSensor(entry, area, index, photos)
         for index, area in enumerate(areas, 1)
     )
     count_sensors = [
-        ShipCountSensor(entry, area, index, period="day")
+        VesselCountSensor(entry, area, index, period="day")
         for index, area in enumerate(areas, 1)
     ]
     count_sensors.extend(
-        ShipCountSensor(entry, area, index, period="hour")
+        VesselCountSensor(entry, area, index, period="hour")
         for index, area in enumerate(areas, 1)
     )
     entities.extend(count_sensors)
-    known: dict[str, AisMapShipSensor] = {}
+    known: dict[str, AisMapVesselSensor] = {}
     if tracker.map_entities_enabled:
-        for mmsi, ship in tracker.ships.items():
-            known[mmsi] = AisMapShipSensor(
-                entry, tracker, mmsi, ship, tuple(entry.runtime_data.photos.values())
+        for mmsi, vessel in tracker.vessels.items():
+            known[mmsi] = AisMapVesselSensor(
+                entry, tracker, mmsi, vessel, tuple(entry.runtime_data.photos.values())
             )
-            _trigger_map_photo_lookup(hass, entry, mmsi, ship)
+            _trigger_map_photo_lookup(hass, entry, mmsi, vessel)
         entities.extend(known.values())
     async_add_entities(entities)
 
@@ -118,7 +118,7 @@ async def async_setup_entry(
     entry.async_create_background_task(
         hass,
         _async_remove_orphaned_map_entities(hass, entry, set(known)),
-        "ais_ship_tracker_cleanup_map_entities",
+        "ais_vessel_tracker_cleanup_map_entities",
     )
 
     @callback
@@ -126,25 +126,25 @@ async def async_setup_entry(
         """Add newly observed vessels and remove expired sensors."""
         if not tracker.map_entities_enabled:
             return
-        for mmsi in set(known) - set(tracker.ships):
+        for mmsi in set(known) - set(tracker.vessels):
             entity = known.pop(mmsi)
             entry.async_create_background_task(
                 hass,
                 _async_remove_map_entity(hass, entity),
-                "ais_ship_tracker_remove_map_entity",
+                "ais_vessel_tracker_remove_map_entity",
             )
         new_entities = []
-        for mmsi, ship in tracker.ships.items():
+        for mmsi, vessel in tracker.vessels.items():
             if mmsi not in known:
-                known[mmsi] = AisMapShipSensor(
+                known[mmsi] = AisMapVesselSensor(
                     entry,
                     tracker,
                     mmsi,
-                    ship,
+                    vessel,
                     tuple(entry.runtime_data.photos.values()),
                 )
                 new_entities.append(known[mmsi])
-                _trigger_map_photo_lookup(hass, entry, mmsi, ship)
+                _trigger_map_photo_lookup(hass, entry, mmsi, vessel)
         if new_entities:
             async_add_entities(new_entities)
 
@@ -153,7 +153,7 @@ async def async_setup_entry(
 
 async def _async_remove_orphaned_map_entities(
     hass: HomeAssistant,
-    entry: AisShipTrackerConfigEntry,
+    entry: AisVesselTrackerConfigEntry,
     active_mmsis: set[str],
 ) -> None:
     """Remove dynamic vessel entities left by a previous runtime."""
@@ -165,8 +165,8 @@ async def _async_remove_orphaned_map_entities(
     ):
         if (
             registry_entry.platform == entry.domain
-            and (registry_entry.unique_id or "").startswith("ais_ship_")
-            and (registry_entry.unique_id or "").removeprefix("ais_ship_")
+            and (registry_entry.unique_id or "").startswith("ais_vessel_")
+            and (registry_entry.unique_id or "").removeprefix("ais_vessel_")
             not in active_mmsis
         ):
             registry.async_remove(registry_entry.entity_id)
@@ -176,7 +176,7 @@ async def _async_remove_orphaned_map_entities(
 
 
 async def _async_remove_map_entity(
-    hass: HomeAssistant, entity: "AisMapShipSensor"
+    hass: HomeAssistant, entity: "AisMapVesselSensor"
 ) -> None:
     """Remove an expired vessel entity from state and the entity registry."""
     entity_id = entity.entity_id
@@ -185,32 +185,32 @@ async def _async_remove_map_entity(
         er.async_get(hass).async_remove(entity_id)
 
 
-class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
+class LastPassingVesselSensor(AisVesselTrackerEntity, SensorEntity):
     """Expose the last vessel detected by a configured AIS source."""
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:ferry"
-    _attr_name = "Last Passing Ship"
+    _attr_name = "Last Passing Vessel"
 
     def __init__(
         self,
-        entry: AisShipTrackerConfigEntry,
+        entry: AisVesselTrackerConfigEntry,
         area: dict[str, Any],
         index: int,
-        photos: tuple[ShipPhotoCoordinator, ...],
+        photos: tuple[VesselPhotoCoordinator, ...],
     ) -> None:
         """Initialize the last vessel sensor."""
         super().__init__(entry)
         self.area_id = area_id(area, index)
-        self._attr_name = f"{area_name(area, index)} Last Passing Ship"
-        self._attr_unique_id = f"last_passing_ship_{self.area_id}"
-        self._attr_suggested_object_id = f"{area_slug(area, index)}_last_passing_ship"
+        self._attr_name = f"{area_name(area, index)} Last Passing Vessel"
+        self._attr_unique_id = f"last_passing_vessel_{self.area_id}"
+        self._attr_suggested_object_id = f"{area_slug(area, index)}_last_passing_vessel"
         self.coordinator = entry.runtime_data.tracker
         self._photos = photos
 
-    def _photo_coordinator(self) -> ShipPhotoCoordinator | None:
+    def _photo_coordinator(self) -> VesselPhotoCoordinator | None:
         """Return the photo coordinator holding the current vessel image."""
-        mmsi = self.coordinator.last_ships.get(self.area_id, {}).get("mmsi")
+        mmsi = self.coordinator.last_vessels.get(self.area_id, {}).get("mmsi")
         for photo in self._photos:
             if photo.image_for_mmsi(mmsi) is not None:
                 return photo
@@ -221,29 +221,29 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         """Return the HA URL for the current vessel photo."""
         if self._photo_coordinator() is None:
             return None
-        mmsi = self.coordinator.last_ships.get(self.area_id, {}).get("mmsi")
-        return f"/api/ais_ship_tracker/photo/{self.coordinator.entry_id}/{mmsi}"
+        mmsi = self.coordinator.last_vessels.get(self.area_id, {}).get("mmsi")
+        return f"/api/ais_vessel_tracker/photo/{self.coordinator.entry_id}/{mmsi}"
 
     @property
     def available(self) -> bool:
         """Return whether a vessel has been detected or restored."""
-        return self.area_id in self.coordinator.last_ships
+        return self.area_id in self.coordinator.last_vessels
 
     @property
     def native_value(self) -> str | None:
         """Return the latest vessel name."""
-        return self.coordinator.last_ships.get(self.area_id, {}).get("ship_name")
+        return self.coordinator.last_vessels.get(self.area_id, {}).get("vessel_name")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the latest vessel details."""
-        attributes = dict(self.coordinator.last_ships.get(self.area_id, {}))
+        attributes = dict(self.coordinator.last_vessels.get(self.area_id, {}))
         _add_source_attributes(attributes)
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
         url = marine_traffic_url(
-            attributes.get("marine_traffic_ship_id"), attributes.get("mmsi")
+            attributes.get("marine_traffic_vessel_id"), attributes.get("mmsi")
         )
         if url:
             attributes["marinetraffic_url"] = url
@@ -269,32 +269,32 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
             self.async_on_remove(photo.async_add_listener(self.async_write_ha_state))
 
 
-class ShipCountSensor(AisShipTrackerEntity, SensorEntity):
+class VesselCountSensor(AisVesselTrackerEntity, SensorEntity):
     """Count distinct vessels detected during a local calendar period."""
 
     _attr_has_entity_name = False
     _attr_icon = "mdi:ferry"
-    _attr_native_unit_of_measurement = "ships"
+    _attr_native_unit_of_measurement = "vessels"
 
     def __init__(
         self,
-        entry: AisShipTrackerConfigEntry,
+        entry: AisVesselTrackerConfigEntry,
         area: dict[str, Any],
         index: int,
         *,
         period: str,
     ) -> None:
-        """Initialize a ship counter."""
+        """Initialize a vessel counter."""
         super().__init__(entry)
         self.coordinator = entry.runtime_data.tracker
         self.area_id = area_id(area, index)
         self.period = period
-        suffix = "ships_today" if period == "day" else "ships_this_hour"
+        suffix = "vessels_today" if period == "day" else "vessels_this_hour"
         self._attr_translation_key = suffix
         self._attr_name = (
-            f"{area_name(area, index)} Ships Today"
+            f"{area_name(area, index)} Vessels Today"
             if period == "day"
-            else f"{area_name(area, index)} Ships in Last Hour"
+            else f"{area_name(area, index)} Vessels in Last Hour"
         )
         self._attr_unique_id = f"{suffix}_{self.area_id}"
         self._attr_suggested_object_id = f"{area_slug(area, index)}_{suffix}"
@@ -302,7 +302,7 @@ class ShipCountSensor(AisShipTrackerEntity, SensorEntity):
     @property
     def native_value(self) -> int:
         """Return the number of distinct vessels in the current period."""
-        return self.coordinator.count_ship_sightings(self.area_id, period=self.period)
+        return self.coordinator.count_vessel_sightings(self.area_id, period=self.period)
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""
@@ -312,7 +312,7 @@ class ShipCountSensor(AisShipTrackerEntity, SensorEntity):
         )
 
 
-class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
+class AisMapVesselSensor(AisVesselTrackerEntity, SensorEntity):
     """Expose one currently visible vessel for map cards and automations."""
 
     _attr_has_entity_name = False
@@ -321,19 +321,19 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
 
     def __init__(
         self,
-        entry: AisShipTrackerConfigEntry,
+        entry: AisVesselTrackerConfigEntry,
         coordinator: AisTrackerCoordinator,
         mmsi: str,
-        ship: dict[str, Any],
-        photos: tuple[ShipPhotoCoordinator, ...],
+        vessel: dict[str, Any],
+        photos: tuple[VesselPhotoCoordinator, ...],
     ) -> None:
         """Initialize a vessel map sensor."""
         super().__init__(entry)
         self.coordinator = coordinator
         self.mmsi = mmsi
-        self._attr_unique_id = f"ais_ship_{mmsi}"
-        self._attr_suggested_object_id = f"ais_ship_{mmsi}"
-        self._ship = ship
+        self._attr_unique_id = f"ais_vessel_{mmsi}"
+        self._attr_suggested_object_id = f"ais_vessel_{mmsi}"
+        self._vessel = vessel
         self._photos = photos
 
     def _photo(self) -> dict[str, Any] | None:
@@ -343,7 +343,7 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
                 return photo_data
         return None
 
-    def _photo_coordinator(self) -> ShipPhotoCoordinator | None:
+    def _photo_coordinator(self) -> VesselPhotoCoordinator | None:
         """Return the photo coordinator holding this vessel's image."""
         for photo in self._photos:
             if photo.image_for_mmsi(self.mmsi) is not None:
@@ -356,38 +356,38 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
         if self._photo_coordinator() is None:
             return None
         return (
-            f"/api/ais_ship_tracker/photo/"
+            f"/api/ais_vessel_tracker/photo/"
             f"{self.coordinator.entry_id}/{self.mmsi}"
         )
 
     @property
     def name(self) -> str:
         """Return the current vessel name."""
-        return str(self._ship.get("ship_name") or f"AIS Ship {self.mmsi}")
+        return str(self._vessel.get("vessel_name") or f"AIS Vessel {self.mmsi}")
 
     @property
     def available(self) -> bool:
         """Return whether this vessel is still inside the map timeout."""
-        return self.mmsi in self.coordinator.ships
+        return self.mmsi in self.coordinator.vessels
 
     @property
     def native_value(self) -> float | None:
         """Return the vessel speed in knots."""
-        value = self._ship.get("speed_knots")
+        value = self._vessel.get("speed_knots")
         return float(value) if isinstance(value, (int, float)) else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return vessel position and AIS details."""
         attributes = {
-            key: value for key, value in self._ship.items() if not key.startswith("_")
+            key: value for key, value in self._vessel.items() if not key.startswith("_")
         }
         _add_source_attributes(attributes)
         url = vessel_finder_url(attributes.get("mmsi"))
         if url:
             attributes["vessel_finder_url"] = url
         url = marine_traffic_url(
-            attributes.get("marine_traffic_ship_id"), attributes.get("mmsi")
+            attributes.get("marine_traffic_vessel_id"), attributes.get("mmsi")
         )
         if url:
             attributes["marinetraffic_url"] = url
@@ -404,7 +404,7 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""
         await super().async_added_to_hass()
-        if self.mmsi not in self.coordinator.ships:
+        if self.mmsi not in self.coordinator.vessels:
             await _async_remove_map_entity(self.hass, self)
             return
         self.async_on_remove(self.coordinator.async_add_listener(self._updated))
@@ -419,6 +419,6 @@ class AisMapShipSensor(AisShipTrackerEntity, SensorEntity):
     @callback
     def _updated(self) -> None:
         """Refresh this vessel from the coordinator."""
-        if self.mmsi in self.coordinator.ships:
-            self._ship = self.coordinator.ships[self.mmsi]
+        if self.mmsi in self.coordinator.vessels:
+            self._vessel = self.coordinator.vessels[self.mmsi]
         self.async_write_ha_state()

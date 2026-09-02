@@ -1,4 +1,4 @@
-"""Services for AIS Ship Tracker."""
+"""Services for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -29,16 +29,16 @@ SERVICE_REFRESH_VESSEL_PHOTO_SCHEMA = vol.Schema(
 SERVICE_PURGE_VESSEL_PHOTOS_SCHEMA = vol.Schema({})
 
 
-def _known_ships(tracker: Any) -> dict[str, dict[str, Any]]:
+def _known_vessels(tracker: Any) -> dict[str, dict[str, Any]]:
     """Return currently known vessels, keyed by MMSI."""
-    ships: dict[str, dict[str, Any]] = {}
-    for ship in tracker.ships.values():
-        if mmsi := str(ship.get(ATTR_MMSI) or ""):
-            ships[mmsi] = ship
-    for ship in tracker.last_ships.values():
-        if mmsi := str(ship.get(ATTR_MMSI) or ""):
-            ships.setdefault(mmsi, ship)
-    return ships
+    vessels: dict[str, dict[str, Any]] = {}
+    for vessel in tracker.vessels.values():
+        if mmsi := str(vessel.get(ATTR_MMSI) or ""):
+            vessels[mmsi] = vessel
+    for vessel in tracker.last_vessels.values():
+        if mmsi := str(vessel.get(ATTR_MMSI) or ""):
+            vessels.setdefault(mmsi, vessel)
+    return vessels
 
 
 def _target_mmsis(hass: HomeAssistant, entity_ids: list[str]) -> set[str]:
@@ -88,17 +88,17 @@ async def _async_refresh_vessel_photo(call: ServiceCall) -> None:
         runtime = entry.runtime_data
         if runtime is None:
             continue
-        known_ships = _known_ships(runtime.tracker)
-        ships = (
-            known_ships
+        known_vessels = _known_vessels(runtime.tracker)
+        vessels = (
+            known_vessels
             if selected_mmsis is None
             else {
-                mmsi: known_ships[mmsi]
+                mmsi: known_vessels[mmsi]
                 for mmsi in selected_mmsis
-                if mmsi in known_ships
+                if mmsi in known_vessels
             }
         )
-        found_mmsis.update(ships)
+        found_mmsis.update(vessels)
         if ignore_cache:
             for photo in runtime.photos.values():
                 if selected_mmsis is None:
@@ -108,8 +108,8 @@ async def _async_refresh_vessel_photo(call: ServiceCall) -> None:
                         await photo.async_forget(mmsi)
         for photo in runtime.photos.values():
             refresh_tasks.extend(
-                photo.async_refresh(force=True, ship_override=ship)
-                for ship in ships.values()
+                photo.async_refresh(force=True, vessel_override=vessel)
+                for vessel in vessels.values()
             )
 
     if selected_mmsis is not None and found_mmsis != selected_mmsis:
@@ -156,7 +156,7 @@ async def _async_purge_vessel_photos(call: ServiceCall) -> None:
 
 
 def async_setup_services(hass: HomeAssistant) -> None:
-    """Register AIS Ship Tracker services."""
+    """Register AIS Vessel Tracker services."""
     hass.services.async_register(
         DOMAIN,
         SERVICE_REFRESH_VESSEL_PHOTO,

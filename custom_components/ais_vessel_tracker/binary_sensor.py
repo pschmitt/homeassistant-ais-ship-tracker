@@ -1,4 +1,4 @@
-"""Binary sensor platform for AIS Ship Tracker."""
+"""Binary sensor platform for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import AisShipTrackerConfigEntry
-from .entity import AisShipTrackerEntity, remove_legacy_entities
+from . import AisVesselTrackerConfigEntry
+from .entity import AisVesselTrackerEntity, remove_legacy_entities
 from .sources import SOURCE_AISHUB, SOURCE_AISSTREAM, SOURCE_LOCAL_MQTT, source_label
 from .tracker import AisTrackerCoordinator
 
@@ -24,7 +24,7 @@ _SOURCE_ENABLED = {
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: AisShipTrackerConfigEntry,
+    entry: AisVesselTrackerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up one connectivity binary sensor per configured AIS source."""
@@ -37,7 +37,7 @@ async def async_setup_entry(
     )
 
 
-class SourceConnectionSensor(AisShipTrackerEntity, BinarySensorEntity):
+class SourceConnectionSensor(AisVesselTrackerEntity, BinarySensorEntity):
     """Report whether one configured AIS source is currently connected."""
 
     _attr_has_entity_name = False
@@ -46,7 +46,7 @@ class SourceConnectionSensor(AisShipTrackerEntity, BinarySensorEntity):
 
     def __init__(
         self,
-        entry: AisShipTrackerConfigEntry,
+        entry: AisVesselTrackerConfigEntry,
         tracker: AisTrackerCoordinator,
         source: str,
     ) -> None:

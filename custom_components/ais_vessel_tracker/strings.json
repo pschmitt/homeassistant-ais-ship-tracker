@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "AIS Ship Tracker",
+        "title": "AIS Vessel Tracker",
         "description": "Track vessels in one or more areas and optionally search SearXNG for photos.",
         "data": {
           "aisstream_enabled": "Enable AISStream source",
@@ -41,7 +41,7 @@
           "map_radius": "Extended map radius (metres, optional)"
         },
         "data_description": {
-          "map_radius": "If set, ships within this larger radius are shown on the map, but only ships inside the zone above count toward the last passing ship and sighting totals."
+          "map_radius": "If set, vessels within this larger radius are shown on the map, but only vessels inside the zone above count toward the last passing vessel and sighting totals."
         },
         "error": {
           "invalid_area_name": "Enter a name for this tracking area.",
@@ -54,7 +54,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "AIS Ship Tracker settings",
+        "title": "AIS Vessel Tracker settings",
         "description": "Choose shared settings or manage tracking areas.",
         "menu_options": {
           "general": "General settings",
@@ -138,7 +138,7 @@
           "map_radius": "Extended map radius (metres, optional)"
         },
         "data_description": {
-          "map_radius": "If set, ships within this larger radius are shown on the map, but only ships inside the zone above count toward the last passing ship and sighting totals."
+          "map_radius": "If set, vessels within this larger radius are shown on the map, but only vessels inside the zone above count toward the last passing vessel and sighting totals."
         },
         "error": {
           "invalid_area_name": "Enter a name for this tracking area.",
@@ -160,12 +160,12 @@
   },
   "entity": {
     "sensor": {
-      "last_passing_ship": {"name": "Last Passing Ship"},
-      "ships_today": {"name": "Ships Today"},
-      "ships_this_hour": {"name": "Ships in Last Hour"}
+      "last_passing_vessel": {"name": "Last Passing Vessel"},
+      "vessels_today": {"name": "Vessels Today"},
+      "vessels_this_hour": {"name": "Vessels in Last Hour"}
     },
     "event": {
-      "last_ship_updated": {"name": "Last Ship Updated"}
+      "last_vessel_updated": {"name": "Last Vessel Updated"}
     }
   },
   "issues": {
@@ -174,7 +174,7 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker credentials",
+            "title": "Fix AIS Vessel Tracker credentials",
             "description": "Enter a valid AISStream API key and check the tracking settings.",
             "data": {
               "api_key": "AISStream API key",
@@ -200,7 +200,7 @@
             }
           }
         },
-        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+        "abort": {"entry_not_found": "The AIS Vessel Tracker config entry no longer exists."}
       }
     },
     "ais_connection": {
@@ -208,7 +208,7 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker connection",
+            "title": "Fix AIS Vessel Tracker connection",
             "description": "Check the AISStream API key and tracking settings, then try again.",
             "data": {
               "api_key": "AISStream API key",
@@ -234,7 +234,7 @@
             }
           }
         },
-        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+        "abort": {"entry_not_found": "The AIS Vessel Tracker config entry no longer exists."}
       }
     },
     "source_unavailable": {
@@ -268,7 +268,7 @@
             }
           }
         },
-        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+        "abort": {"entry_not_found": "The AIS Vessel Tracker config entry no longer exists."}
       }
     },
     "invalid_searxng_url": {
@@ -276,7 +276,7 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker settings",
+            "title": "Fix AIS Vessel Tracker settings",
             "description": "Enter a valid SearXNG URL or leave it empty to disable photo lookups.",
             "data": {
               "api_key": "AISStream API key",
@@ -302,7 +302,7 @@
             }
           }
         },
-        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+        "abort": {"entry_not_found": "The AIS Vessel Tracker config entry no longer exists."}
       }
     },
     "searxng_authentication": {
@@ -310,7 +310,7 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker HTTP Basic Auth",
+            "title": "Fix AIS Vessel Tracker HTTP Basic Auth",
             "description": "Check the HTTP Basic Auth credentials for SearXNG, or leave the URL empty to disable photo lookups.",
             "data": {
               "api_key": "AISStream API key",
@@ -336,7 +336,7 @@
             }
           }
         },
-        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+        "abort": {"entry_not_found": "The AIS Vessel Tracker config entry no longer exists."}
       }
     },
     "searxng_endpoint": {
@@ -344,7 +344,7 @@
       "fix_flow": {
         "step": {
           "configure": {
-            "title": "Fix AIS Ship Tracker SearXNG URL",
+            "title": "Fix AIS Vessel Tracker SearXNG URL",
             "description": "Check the SearXNG URL, or leave it empty to disable photo lookups.",
             "data": {
               "api_key": "AISStream API key",
@@ -370,7 +370,7 @@
             }
           }
         },
-        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+        "abort": {"entry_not_found": "The AIS Vessel Tracker config entry no longer exists."}
       }
     }
   }

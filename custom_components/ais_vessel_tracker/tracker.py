@@ -1,4 +1,4 @@
-"""Multi-source AIS collector for AIS Ship Tracker."""
+"""Multi-source AIS collector for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -43,11 +43,11 @@ _RECONNECT_DELAY = 10
 # (see _create_authentication_issue/_create_connection_issue below), so only
 # the other, optional sources get the generic "source unavailable" repair.
 _ISSUE_ELIGIBLE_SOURCES = frozenset({SOURCE_LOCAL_MQTT, SOURCE_AISHUB})
-# Minimum time between last-passing-ship handoffs to a *different* vessel.
+# Minimum time between last-passing-vessel handoffs to a *different* vessel.
 # Without this, several vessels reporting positions around the same time
-# would make the last-passing-ship sensor and its photo lookup flip-flop
+# would make the last-passing-vessel sensor and its photo lookup flip-flop
 # between them instead of settling on whichever is genuinely most current.
-_LAST_SHIP_DEBOUNCE = timedelta(minutes=3)
+_LAST_VESSEL_DEBOUNCE = timedelta(minutes=3)
 
 _NAV_STATUS = {
     0: "Under way using engine",
@@ -92,8 +92,8 @@ def _vessel_type(type_number: Any) -> str | None:
         (53, 53, "Port Tender"),
         (54, 54, "Anti-pollution Equipment"),
         (55, 55, "Law Enforcement"),
-        (60, 69, "Passenger Ship"),
-        (70, 79, "Cargo Ship"),
+        (60, 69, "Passenger Vessel"),
+        (70, 79, "Cargo Vessel"),
         (80, 89, "Tanker"),
         (90, 99, "Other"),
     )
@@ -113,20 +113,20 @@ class AisTrackerCoordinator:
         self.session = session
         self.settings = settings
         self.entry_id = entry_id
-        self.last_ships: dict[str, dict[str, Any]] = {}
-        self.ship_sightings: dict[str, list[dict[str, str]]] = {}
-        self.ships: dict[str, dict[str, Any]] = {}
-        self._static_ship_data: dict[str, dict[str, Any]] = {}
+        self.last_vessels: dict[str, dict[str, Any]] = {}
+        self.vessel_sightings: dict[str, list[dict[str, str]]] = {}
+        self.vessels: dict[str, dict[str, Any]] = {}
+        self._static_vessel_data: dict[str, dict[str, Any]] = {}
         self.connection_status = "Disconnected"
         self.connection_error: str | None = None
         self.source_status: dict[str, str] = {}
         self.source_errors: dict[str, str] = {}
         self.source_last_message: dict[str, str] = {}
         self._seen_mmsis_by_area: dict[str, set[str]] = {}
-        self._last_ship_switch: dict[str, datetime] = {}
+        self._last_vessel_switch: dict[str, datetime] = {}
         self._listeners: list[Callable[[], None]] = []
         self._store = Store(
-            hass, _STORE_VERSION, f"{DOMAIN}.last_passing_ship_{entry_id}"
+            hass, _STORE_VERSION, f"{DOMAIN}.last_passing_vessel_{entry_id}"
         )
         self._task: asyncio.Task[None] | None = None
         self._aishub_task: asyncio.Task[None] | None = None
@@ -134,12 +134,12 @@ class AisTrackerCoordinator:
         self._stopping = False
 
     @property
-    def last_ship(self) -> dict[str, Any] | None:
-        """Return the first area's last ship for backwards compatibility."""
+    def last_vessel(self) -> dict[str, Any] | None:
+        """Return the first area's last vessel for backwards compatibility."""
         areas = configured_areas(self.settings)
         if not areas:
             return None
-        return self.last_ships.get(area_id(areas[0], 1))
+        return self.last_vessels.get(area_id(areas[0], 1))
 
     @property
     def map_entities_enabled(self) -> bool:
@@ -203,14 +203,14 @@ class AisTrackerCoordinator:
         self._stopping = False
         stored = await self._store.async_load()
         migrated = False
-        if isinstance(stored, dict) and isinstance(stored.get("last_ships"), dict):
-            self.last_ships = {
-                str(area_key): dict(ship)
-                for area_key, ship in stored["last_ships"].items()
-                if isinstance(ship, dict) and ship.get("mmsi")
+        if isinstance(stored, dict) and isinstance(stored.get("last_vessels"), dict):
+            self.last_vessels = {
+                str(area_key): dict(vessel)
+                for area_key, vessel in stored["last_vessels"].items()
+                if isinstance(vessel, dict) and vessel.get("mmsi")
             }
-            if isinstance(stored.get("ship_sightings"), dict):
-                self.ship_sightings = {
+            if isinstance(stored.get("vessel_sightings"), dict):
+                self.vessel_sightings = {
                     str(area_key): [
                         {
                             "mmsi": str(sighting.get("mmsi")),
@@ -221,28 +221,28 @@ class AisTrackerCoordinator:
                         and sighting.get("mmsi")
                         and sighting.get("spotted_time")
                     ]
-                    for area_key, sightings in stored["ship_sightings"].items()
+                    for area_key, sightings in stored["vessel_sightings"].items()
                     if isinstance(sightings, list)
                 }
         elif isinstance(stored, dict) and stored.get("mmsi"):
             # Migrate the original single-area store format to area_1.
             areas = configured_areas(self.settings)
             if areas:
-                self.last_ships[area_id(areas[0], 1)] = dict(stored)
+                self.last_vessels[area_id(areas[0], 1)] = dict(stored)
                 migrated = True
-        for area_key, ship in self.last_ships.items():
-            self._seen_mmsis_by_area[area_key] = {str(ship["mmsi"])}
-            spotted_time = ship.get("spotted_time")
+        for area_key, vessel in self.last_vessels.items():
+            self._seen_mmsis_by_area[area_key] = {str(vessel["mmsi"])}
+            spotted_time = vessel.get("spotted_time")
             if not spotted_time:
                 continue
             if any(
-                sighting.get("mmsi") == str(ship["mmsi"])
+                sighting.get("mmsi") == str(vessel["mmsi"])
                 and sighting.get("spotted_time") == str(spotted_time)
-                for sighting in self.ship_sightings.get(area_key, [])
+                for sighting in self.vessel_sightings.get(area_key, [])
             ):
                 continue
-            self.ship_sightings.setdefault(area_key, []).append(
-                {"mmsi": str(ship["mmsi"]), "spotted_time": str(spotted_time)}
+            self.vessel_sightings.setdefault(area_key, []).append(
+                {"mmsi": str(vessel["mmsi"]), "spotted_time": str(spotted_time)}
             )
             migrated = True
         self._purge_old_sightings()
@@ -385,7 +385,7 @@ class AisTrackerCoordinator:
             except Exception as error:  # noqa: BLE001
                 self.connection_error = str(error)
                 self._set_status("Disconnected")
-                _LOGGER.warning("AIS Ship Tracker connection failed: %s", error)
+                _LOGGER.warning("AIS Vessel Tracker connection failed: %s", error)
             if not self._stopping:
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, 120)
@@ -417,7 +417,7 @@ class AisTrackerCoordinator:
                 try:
                     message = await websocket.receive(timeout=60)
                 except asyncio.TimeoutError:
-                    self._purge_old_ships()
+                    self._purge_old_vessels()
                     continue
                 if message.type in {WSMsgType.TEXT, WSMsgType.BINARY}:
                     payload = (
@@ -449,7 +449,7 @@ class AisTrackerCoordinator:
                         "AISStream websocket closed "
                         f"(code={websocket.close_code}, exception={websocket.exception()})"
                     )
-                self._purge_old_ships()
+                self._purge_old_vessels()
 
     def _handle_message(self, message: dict[str, Any]) -> None:
         """Handle one AISStream message."""
@@ -475,21 +475,21 @@ class AisTrackerCoordinator:
         self.source_last_message[observation.source] = (
             observation.received_at.isoformat()
         )
-        if observation.static_data or observation.ship_name:
+        if observation.static_data or observation.vessel_name:
             self._handle_static_data(observation)
         if observation.latitude is None or observation.longitude is None:
             self._notify()
             return
 
         now = observation.received_at
-        old_ship = self.ships.get(observation.mmsi, {})
+        old_vessel = self.vessels.get(observation.mmsi, {})
         nav_status = observation.navigational_status
-        ship = dict(old_ship)
-        ship.update(
+        vessel = dict(old_vessel)
+        vessel.update(
             {
-                "ship_name": observation.ship_name
-                or old_ship.get("ship_name")
-                or "Unknown Ship",
+                "vessel_name": observation.vessel_name
+                or old_vessel.get("vessel_name")
+                or "Unknown Vessel",
                 "mmsi": observation.mmsi,
                 "latitude": observation.latitude,
                 "longitude": observation.longitude,
@@ -497,58 +497,58 @@ class AisTrackerCoordinator:
                 "course": observation.course,
                 "heading": observation.heading,
                 "navigational_status": _NAV_STATUS.get(
-                    nav_status, old_ship.get("navigational_status", "Not defined")
+                    nav_status, old_vessel.get("navigational_status", "Not defined")
                 ),
                 "vessel_class": observation.vessel_class
-                or old_ship.get("vessel_class", "Unknown"),
+                or old_vessel.get("vessel_class", "Unknown"),
                 "icon": _NAV_ICONS.get(
-                    nav_status, old_ship.get("icon", "mdi:ferry")
+                    nav_status, old_vessel.get("icon", "mdi:ferry")
                 ),
                 "source": observation.source,
                 "sources_seen": sorted(
-                    set(old_ship.get("sources_seen", [])) | {observation.source}
+                    set(old_vessel.get("sources_seen", [])) | {observation.source}
                 ),
                 "spotted_time": now.isoformat(),
                 "_last_seen": now,
             }
         )
         if observation.raw_nmea:
-            ship["raw_nmea"] = list(observation.raw_nmea)
-        ship.update(self._static_ship_data.get(observation.mmsi, {}))
-        self.ships[observation.mmsi] = ship
-        self._trim_map_ships()
+            vessel["raw_nmea"] = list(observation.raw_nmea)
+        vessel.update(self._static_vessel_data.get(observation.mmsi, {}))
+        self.vessels[observation.mmsi] = vessel
+        self._trim_map_vessels()
         stored = False
-        public_ship = self._public_ship(ship)
+        public_vessel = self._public_vessel(vessel)
         for tracking_area_id in self._area_ids_for_position(
             observation.latitude, observation.longitude
         ):
             seen_mmsis = self._seen_mmsis_by_area.setdefault(tracking_area_id, set())
             if observation.mmsi not in seen_mmsis:
                 seen_mmsis.add(observation.mmsi)
-                self.ship_sightings.setdefault(tracking_area_id, []).append(
+                self.vessel_sightings.setdefault(tracking_area_id, []).append(
                     {
                         "mmsi": observation.mmsi,
-                        "spotted_time": public_ship["spotted_time"],
+                        "spotted_time": public_vessel["spotted_time"],
                     }
                 )
                 stored = True
 
-            current_ship = self.last_ships.get(tracking_area_id)
-            if current_ship is not None and current_ship.get("mmsi") == observation.mmsi:
+            current_vessel = self.last_vessels.get(tracking_area_id)
+            if current_vessel is not None and current_vessel.get("mmsi") == observation.mmsi:
                 # The vessel already shown as last-passing just reported a
                 # newer position: keep it live without writing to the store
                 # on every single update, which could be every few seconds.
-                self.last_ships[tracking_area_id] = public_ship
+                self.last_vessels[tracking_area_id] = public_vessel
                 continue
 
-            last_switch = self._last_ship_switch.get(tracking_area_id)
+            last_switch = self._last_vessel_switch.get(tracking_area_id)
             if (
-                current_ship is None
+                current_vessel is None
                 or last_switch is None
-                or now - last_switch >= _LAST_SHIP_DEBOUNCE
+                or now - last_switch >= _LAST_VESSEL_DEBOUNCE
             ):
-                self.last_ships[tracking_area_id] = public_ship
-                self._last_ship_switch[tracking_area_id] = now
+                self.last_vessels[tracking_area_id] = public_vessel
+                self._last_vessel_switch[tracking_area_id] = now
                 stored = True
         if stored:
             self._purge_old_sightings()
@@ -582,11 +582,11 @@ class AisTrackerCoordinator:
     def _stored_data(self) -> dict[str, Any]:
         """Return the persisted per-area last-vessel payload."""
         return {
-            "last_ships": self.last_ships,
-            "ship_sightings": self.ship_sightings,
+            "last_vessels": self.last_vessels,
+            "vessel_sightings": self.vessel_sightings,
         }
 
-    def count_ship_sightings(self, area_key: str, *, period: str) -> int:
+    def count_vessel_sightings(self, area_key: str, *, period: str) -> int:
         """Count distinct MMSIs recorded in the current local time period."""
         now = dt_util.now()
         if period == "day":
@@ -595,7 +595,7 @@ class AisTrackerCoordinator:
             start = now - timedelta(seconds=3600)
 
         mmsis: set[str] = set()
-        for sighting in self.ship_sightings.get(area_key, []):
+        for sighting in self.vessel_sightings.get(area_key, []):
             try:
                 spotted = datetime.fromisoformat(sighting["spotted_time"])
             except (KeyError, TypeError, ValueError):
@@ -606,15 +606,15 @@ class AisTrackerCoordinator:
                 mmsis.add(str(sighting["mmsi"]))
         return len(mmsis)
 
-    def set_marine_traffic_ship_id(self, mmsi: str, ship_id: str) -> None:
-        """Attach MarineTraffic's internal vessel ID to matching ship data."""
+    def set_marine_traffic_vessel_id(self, mmsi: str, vessel_id: str) -> None:
+        """Attach MarineTraffic's internal vessel ID to matching vessel data."""
         updated = False
-        for ship in (*self.ships.values(), *self.last_ships.values()):
-            if str(ship.get("mmsi")) != mmsi:
+        for vessel in (*self.vessels.values(), *self.last_vessels.values()):
+            if str(vessel.get("mmsi")) != mmsi:
                 continue
-            if ship.get("marine_traffic_ship_id") == ship_id:
+            if vessel.get("marine_traffic_vessel_id") == vessel_id:
                 continue
-            ship["marine_traffic_ship_id"] = ship_id
+            vessel["marine_traffic_vessel_id"] = vessel_id
             updated = True
         if updated:
             self.hass.async_create_task(self._store.async_save(self._stored_data()))
@@ -623,8 +623,8 @@ class AisTrackerCoordinator:
     def _purge_old_sightings(self) -> None:
         """Keep enough history for current and previous local-day counters."""
         cutoff = datetime.now(UTC) - timedelta(days=2)
-        for area_key, sightings in self.ship_sightings.items():
-            self.ship_sightings[area_key] = [
+        for area_key, sightings in self.vessel_sightings.items():
+            self.vessel_sightings[area_key] = [
                 sighting
                 for sighting in sightings
                 if self._sighting_time(sighting) >= cutoff
@@ -641,34 +641,34 @@ class AisTrackerCoordinator:
             spotted = spotted.replace(tzinfo=UTC)
         return spotted.astimezone(UTC)
 
-    def _trim_map_ships(self) -> None:
+    def _trim_map_vessels(self) -> None:
         """Keep only the most recently reported vessels for map entities."""
         if not self.map_entities_enabled:
-            self.ships.clear()
+            self.vessels.clear()
             return
-        excess = len(self.ships) - self.max_map_entities
+        excess = len(self.vessels) - self.max_map_entities
         if excess <= 0:
             return
         oldest = sorted(
-            self.ships,
-            key=lambda mmsi: self.ships[mmsi].get(
+            self.vessels,
+            key=lambda mmsi: self.vessels[mmsi].get(
                 "_last_seen", datetime.min.replace(tzinfo=UTC)
             ),
         )[:excess]
         for mmsi in oldest:
-            self.ships.pop(mmsi, None)
+            self.vessels.pop(mmsi, None)
 
     def _handle_static_data(self, observation: AisObservation) -> None:
         """Merge static vessel metadata into the tracked vessel."""
         static_values = dict(observation.static_data)
-        if observation.ship_name:
-            static_values["ship_name"] = observation.ship_name
-        self._static_ship_data.setdefault(observation.mmsi, {}).update(
+        if observation.vessel_name:
+            static_values["vessel_name"] = observation.vessel_name
+        self._static_vessel_data.setdefault(observation.mmsi, {}).update(
             {key: value for key, value in static_values.items() if value is not None}
         )
-        ship = self.ships.get(observation.mmsi)
-        if ship is not None:
-            ship.update(
+        vessel = self.vessels.get(observation.mmsi)
+        if vessel is not None:
+            vessel.update(
                 {
                     key: value
                     for key, value in static_values.items()
@@ -677,10 +677,10 @@ class AisTrackerCoordinator:
             )
             self._notify()
         updated = False
-        for last_ship in self.last_ships.values():
-            if last_ship.get("mmsi") != observation.mmsi:
+        for last_vessel in self.last_vessels.values():
+            if last_vessel.get("mmsi") != observation.mmsi:
                 continue
-            last_ship.update(
+            last_vessel.update(
                 {
                     key: value
                     for key, value in static_values.items()
@@ -692,26 +692,26 @@ class AisTrackerCoordinator:
             self.hass.async_create_task(self._store.async_save(self._stored_data()))
             self._notify()
 
-    def _purge_old_ships(self) -> None:
+    def _purge_old_vessels(self) -> None:
         """Remove map vessels that have not reported recently."""
         cutoff = datetime.now(UTC) - timedelta(
             minutes=int(self.settings.get(CONF_MAP_TIMEOUT_MINUTES, 30))
         )
         expired = [
             mmsi
-            for mmsi, ship in self.ships.items()
-            if ship.get("_last_seen", datetime.now(UTC)) < cutoff
+            for mmsi, vessel in self.vessels.items()
+            if vessel.get("_last_seen", datetime.now(UTC)) < cutoff
         ]
         for mmsi in expired:
-            self.ships.pop(mmsi, None)
+            self.vessels.pop(mmsi, None)
         if expired:
             self._notify()
 
-    def _public_ship(self, ship: dict[str, Any]) -> dict[str, Any]:
+    def _public_vessel(self, vessel: dict[str, Any]) -> dict[str, Any]:
         """Remove internal bookkeeping from a vessel payload."""
         return {
             key: value
-            for key, value in ship.items()
+            for key, value in vessel.items()
             if not key.startswith("_") and value is not None
         }
 

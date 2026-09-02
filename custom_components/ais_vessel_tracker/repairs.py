@@ -1,4 +1,4 @@
-"""Repairs for AIS Ship Tracker."""
+"""Repairs for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from .config_flow import _clean_input, _data_schema, _validate_input
 from .const import CONF_API_KEY, CONF_AREA_COUNT, CONF_SEARXNG_PASSWORD
 
 
-class AisShipTrackerRepairFlow(RepairsFlow):
-    """Repair AIS Ship Tracker configuration."""
+class AisVesselTrackerRepairFlow(RepairsFlow):
+    """Repair AIS Vessel Tracker configuration."""
 
     def __init__(self, entry_id: str) -> None:
         """Initialize the repair flow."""
@@ -75,4 +75,4 @@ async def async_create_fix_flow(
 ) -> RepairsFlow:
     """Create the configuration repair flow."""
     del hass, issue_id
-    return AisShipTrackerRepairFlow(str((data or {}).get("entry_id", "")))
+    return AisVesselTrackerRepairFlow(str((data or {}).get("entry_id", "")))

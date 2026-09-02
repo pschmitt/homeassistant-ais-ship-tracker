@@ -31,28 +31,28 @@ from .const import (
     CONF_ZONE_RADIUS,
     DOMAIN,
 )
-from .coordinator import ShipPhotoCoordinator
+from .coordinator import VesselPhotoCoordinator
 from .services import async_setup_services
 from .tracker import AisTrackerCoordinator
 from .zone import async_remove_zones, async_sync_zones
 
 
 @dataclass(slots=True)
-class AisShipTrackerRuntime:
+class AisVesselTrackerRuntime:
     """Runtime objects shared by the integration platforms."""
 
     tracker: AisTrackerCoordinator
-    photos: dict[str, ShipPhotoCoordinator]
+    photos: dict[str, VesselPhotoCoordinator]
 
 
-type AisShipTrackerConfigEntry = ConfigEntry[AisShipTrackerRuntime]
+type AisVesselTrackerConfigEntry = ConfigEntry[AisVesselTrackerRuntime]
 
 
-class AisShipPhotoView(HomeAssistantView):
+class AisVesselPhotoView(HomeAssistantView):
     """Serve collected vessel photos to Home Assistant frontend image tags."""
 
-    url = "/api/ais_ship_tracker/photo/{entry_id}/{mmsi}"
-    name = "api:ais_ship_tracker:photo"
+    url = "/api/ais_vessel_tracker/photo/{entry_id}/{mmsi}"
+    name = "api:ais_vessel_tracker:photo"
     # Map markers use CSS background images and cannot attach the HA bearer
     # header.  The endpoint serves only already-downloaded public provider
     # photos, addressed by an opaque config-entry ID and MMSI.
@@ -77,14 +77,14 @@ class AisShipPhotoView(HomeAssistantView):
         raise web.HTTPNotFound
 
 
-def _platforms_for_entry(entry: AisShipTrackerConfigEntry) -> list[str]:
+def _platforms_for_entry(entry: AisVesselTrackerConfigEntry) -> list[str]:
     """Return only platforms that were forwarded for this config entry."""
     del entry
     return ["sensor", "event", "binary_sensor"]
 
 
 async def async_migrate_entry(
-    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
+    hass: HomeAssistant, entry: AisVesselTrackerConfigEntry
 ) -> bool:
     """Migrate legacy single-area entries to the multi-area format."""
     if entry.version < 3:
@@ -150,15 +150,15 @@ def _update_config_issues(
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Set up the integration domain."""
     del config
-    hass.http.register_view(AisShipPhotoView())
+    hass.http.register_view(AisVesselPhotoView())
     async_setup_services(hass)
     return True
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
+    hass: HomeAssistant, entry: AisVesselTrackerConfigEntry
 ) -> bool:
-    """Set up AIS Ship Tracker from a config entry."""
+    """Set up AIS Vessel Tracker from a config entry."""
     settings = {**entry.data, **entry.options}
     _update_config_issues(hass, entry, settings)
     await async_sync_zones(hass, entry.entry_id, settings)
@@ -168,8 +168,8 @@ async def async_setup_entry(
         settings,
         entry.entry_id,
     )
-    photos: dict[str, ShipPhotoCoordinator] = {
-        area_id(area, index): ShipPhotoCoordinator(
+    photos: dict[str, VesselPhotoCoordinator] = {
+        area_id(area, index): VesselPhotoCoordinator(
             hass,
             async_get_clientsession(hass),
             str(settings.get(CONF_SEARXNG_URL) or ""),
@@ -182,7 +182,7 @@ async def async_setup_entry(
         )
         for index, area in enumerate(configured_areas(settings), 1)
     }
-    entry.runtime_data = AisShipTrackerRuntime(tracker=tracker, photos=photos)
+    entry.runtime_data = AisVesselTrackerRuntime(tracker=tracker, photos=photos)
     await tracker.async_start()
     for photo in photos.values():
         await photo.async_restore()
@@ -205,7 +205,7 @@ async def async_setup_entry(
         entry.async_create_background_task(
             hass,
             async_refresh_source_zone(),
-            "ais_ship_tracker_zone_changed",
+            "ais_vessel_tracker_zone_changed",
         )
 
     if source_zones:
@@ -225,22 +225,22 @@ async def async_setup_entry(
     entry.async_on_unload(tracker.async_add_listener(tracker_updated))
 
     for photo in photos.values():
-        current_ship = tracker.last_ships.get(photo.area_id)
+        current_vessel = tracker.last_vessels.get(photo.area_id)
         current_mmsi = (
-            str(current_ship.get(ATTR_MMSI) or "") if current_ship else ""
+            str(current_vessel.get(ATTR_MMSI) or "") if current_vessel else ""
         )
         if current_mmsi and photo.image_for_mmsi(current_mmsi) is not None:
             continue
         entry.async_create_background_task(
-            hass, photo.async_refresh(), "ais_ship_tracker_initial_refresh"
+            hass, photo.async_refresh(), "ais_vessel_tracker_initial_refresh"
         )
     return True
 
 
 async def async_unload_entry(
-    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
+    hass: HomeAssistant, entry: AisVesselTrackerConfigEntry
 ) -> bool:
-    """Unload AIS Ship Tracker."""
+    """Unload AIS Vessel Tracker."""
     unload_ok = await hass.config_entries.async_unload_platforms(
         entry, _platforms_for_entry(entry)
     )
@@ -250,7 +250,7 @@ async def async_unload_entry(
 
 
 async def async_remove_entry(
-    hass: HomeAssistant, entry: AisShipTrackerConfigEntry
+    hass: HomeAssistant, entry: AisVesselTrackerConfigEntry
 ) -> None:
     """Remove integration-owned resources with the config entry."""
     await async_remove_zones(hass, entry.entry_id)

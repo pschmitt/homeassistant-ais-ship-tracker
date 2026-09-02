@@ -160,12 +160,12 @@
   },
   "entity": {
     "sensor": {
-      "last_passing_ship": {"name": "Zuletzt vorbeigefahrenes Schiff"},
-      "ships_today": {"name": "Schiffe heute"},
-      "ships_this_hour": {"name": "Schiffe in der letzten Stunde"}
+      "last_passing_vessel": {"name": "Zuletzt vorbeigefahrenes Schiff"},
+      "vessels_today": {"name": "Schiffe heute"},
+      "vessels_this_hour": {"name": "Schiffe in der letzten Stunde"}
     },
     "event": {
-      "last_ship_updated": {"name": "Letzte Schiffsaktualisierung"}
+      "last_vessel_updated": {"name": "Letzte Schiffsaktualisierung"}
     }
   },
   "issues": {

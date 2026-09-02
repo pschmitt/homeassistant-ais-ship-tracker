@@ -127,7 +127,7 @@ def area_map_location(
     This is the source zone's radius, widened to the optional per-area
     ``map_radius`` when one is configured. It is only used to decide how much
     data to request from AIS sources; matching vessels to an area for the
-    last-passing-ship entity and sighting counters always uses the narrower
+    last-passing-vessel entity and sighting counters always uses the narrower
     ``area_zone_location`` radius, so a wider map radius only surfaces more
     vessels on the map without affecting notifications.
     """

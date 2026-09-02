@@ -1,4 +1,4 @@
-"""Diagnostics support for AIS Ship Tracker."""
+"""Diagnostics support for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from . import AisShipTrackerConfigEntry
+from . import AisVesselTrackerConfigEntry
 from .areas import configured_areas
 from .const import (CONF_AISHUB_USERNAME, CONF_API_KEY,
                     CONF_ENABLE_MAP_ENTITIES,
@@ -19,9 +19,9 @@ from .const import (CONF_AISHUB_USERNAME, CONF_API_KEY,
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant,
-    config_entry: AisShipTrackerConfigEntry,
+    config_entry: AisVesselTrackerConfigEntry,
 ) -> dict[str, Any]:
-    """Return safe diagnostics for an AIS Ship Tracker config entry."""
+    """Return safe diagnostics for an AIS Vessel Tracker config entry."""
     del hass
     runtime = config_entry.runtime_data
     tracker = runtime.tracker
@@ -67,8 +67,8 @@ async def async_get_config_entry_diagnostics(
             "source_status": tracker.source_status,
             "source_errors": tracker.source_errors,
             "source_last_message": tracker.source_last_message,
-            "last_ships": tracker.last_ships,
-            "map_ship_count": len(tracker.ships),
+            "last_vessels": tracker.last_vessels,
+            "map_vessel_count": len(tracker.vessels),
         },
         "photos": photos,
     }

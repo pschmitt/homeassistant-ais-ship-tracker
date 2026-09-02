@@ -1,4 +1,4 @@
-"""Config flow for AIS Ship Tracker."""
+"""Config flow for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -352,10 +352,10 @@ class _AreaFlowMixin:
         )
 
 
-class AisShipTrackerConfigFlow(
+class AisVesselTrackerConfigFlow(
     _AreaFlowMixin, config_entries.ConfigFlow, domain=DOMAIN
 ):
-    """Handle a config flow for AIS Ship Tracker."""
+    """Handle a config flow for AIS Vessel Tracker."""
 
     VERSION = 4
 
@@ -363,7 +363,7 @@ class AisShipTrackerConfigFlow(
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlowWithReload:
         """Return the options flow for an existing config entry."""
-        return AisShipTrackerOptionsFlow()
+        return AisVesselTrackerOptionsFlow()
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial setup step."""
@@ -375,7 +375,7 @@ class AisShipTrackerConfigFlow(
             if error:
                 errors["base"] = error
             else:
-                await self.async_set_unique_id("ais_ship_tracker")
+                await self.async_set_unique_id("ais_vessel_tracker")
                 self._abort_if_unique_id_configured()
                 self._pending_settings = user_input
                 self._pending_areas = []
@@ -395,7 +395,7 @@ class AisShipTrackerConfigFlow(
     def _async_finish_area_flow(self):
         """Create the entry after all area forms have been completed."""
         return self.async_create_entry(
-            title="AIS Ship Tracker",
+            title="AIS Vessel Tracker",
             data={**self._pending_settings, CONF_AREAS: self._pending_areas},
         )
 
@@ -404,8 +404,8 @@ class AisShipTrackerConfigFlow(
         return await self._async_step_area(user_input)
 
 
-class AisShipTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
-    """Handle options for an existing AIS Ship Tracker entry."""
+class AisVesselTrackerOptionsFlow(_AreaFlowMixin, OptionsFlowWithReload):
+    """Handle options for an existing AIS Vessel Tracker entry."""
 
     def _initialize_pending(self) -> None:
         """Copy current settings into the editable options-flow state."""

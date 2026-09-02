@@ -1,6 +1,6 @@
-# AIS Ship Tracker for Home Assistant
+# AIS Vessel Tracker for Home Assistant
 
-AIS Ship Tracker is a Home Assistant custom integration for monitoring vessels
+AIS Vessel Tracker is a Home Assistant custom integration for monitoring vessels
 inside one or more configurable geographic areas. It can combine the live
 [AISStream.io](https://aisstream.io) WebSocket service with locally received
 AIS-catcher messages from Home Assistant MQTT. It runs entirely as a Home
@@ -8,8 +8,8 @@ Assistant integration; no additional daemon is needed.
 
 ## Features
 
-- Persistent `Last Passing Ship` state, restored after Home Assistant restarts.
-- Per-area counters for distinct ships detected today and during the rolling
+- Persistent `Last Passing Vessel` state, restored after Home Assistant restarts.
+- Per-area counters for distinct vessels detected today and during the rolling
   last 3,600 seconds.
 - Connection status and an event fired when a new vessel becomes the last seen vessel.
 - A bounded set of temporary per-vessel sensors for map cards; expired vessel
@@ -30,19 +30,19 @@ Assistant integration; no additional daemon is needed.
 ## Installation
 
 Install the integration with HACS as a custom repository, or clone this
-repository and copy `custom_components/ais_ship_tracker` into Home Assistant's
+repository and copy `custom_components/ais_vessel_tracker` into Home Assistant's
 `custom_components` directory. The repository is named
-`homeassistant-ais-ship-tracker` to match the other local Home Assistant
+`homeassistant-ais-vessel-tracker` to match the other local Home Assistant
 components.
 
-Restart Home Assistant and add **AIS Ship Tracker** from
+Restart Home Assistant and add **AIS Vessel Tracker** from
 **Settings → Devices & services → Add integration**.
 
 ## Configuration
 
 Create an API key at [AISStream.io](https://aisstream.io) if the AISStream
 source is enabled. The local AIS-catcher source can be used by itself. In the
-AIS Ship Tracker settings, enable **Local AIS-catcher MQTT source** and enter
+AIS Vessel Tracker settings, enable **Local AIS-catcher MQTT source** and enter
 the topic configured in the AIS-catcher app (the default is
 `ais-catcher/ais`). The integration subscribes through Home Assistant's MQTT
 integration; it does not connect to Mosquitto directly.
@@ -65,7 +65,7 @@ subscription.
 
 Each area also accepts an optional, larger **extended map radius**. When set,
 AIS sources are queried out to that wider radius so more vessels show up on
-the map, but the last-passing-ship entity and the today/last-hour sighting
+the map, but the last-passing-vessel entity and the today/last-hour sighting
 counters still only count vessels inside the area's own zone radius. Leave it
 unset to keep detection and the map at the same size. The extended radius
 must be at least the zone's own radius.
@@ -77,7 +77,7 @@ single AISStream subscription. Open **Configure** for the integration and use
 another area, or remove one; shared settings are edited separately.
 
 The integration also creates one passive HA zone for each configured area for
-map display; the first is `zone.ais_ship_tracking_area` and additional zones
+map display; the first is `zone.ais_vessel_tracking_area` and additional zones
 include the configured area name. These mirror zones follow their selected
 source zone and are updated when that source changes. They are safe to use on
 maps without affecting presence tracking, and are removed with the
@@ -86,14 +86,14 @@ integration.
 Class B transponders, an MMSI watchlist, map entity retention, and the maximum
 number of map entities can be changed later from the integration's options. Map
 entities are limited to ten active vessels by default; this limit is
-configurable, and setting it to zero keeps the per-area last-ship entities
+configurable, and setting it to zero keeps the per-area last-vessel entities
 without creating per-vessel sensors. A map entity is considered stale when it
 has not reported for 30 minutes by default. The `map_timeout_minutes` setting
 accepts 5 minutes to 24 hours. Stale entities are removed from both Home
 Assistant and the entity registry, and are recreated if the vessel is observed
 again. Individual map entities are not restored after a Home Assistant restart.
 
-The per-area `Last Passing Ship` entities are different: they retain the
+The per-area `Last Passing Vessel` entities are different: they retain the
 vessel with the most recent position report indefinitely and restore it
 after a restart. Its position, speed, and course keep updating live while it
 remains the most recent; handing the slot to a different vessel is debounced
@@ -127,27 +127,27 @@ credentials.
 
 The integration creates these entities for every configured tracking area:
 
-- `sensor.ais_ship_tracker_<area>_last_passing_ship` — vessel name, unavailable
+- `sensor.ais_vessel_tracker_<area>_last_passing_vessel` — vessel name, unavailable
   until the first detection or restored state, with AIS data in its attributes.
-- `sensor.ais_ship_tracker_<area>_ships_today` and
-  `sensor.ais_ship_tracker_<area>_ships_this_hour` — distinct MMSI counts for
+- `sensor.ais_vessel_tracker_<area>_vessels_today` and
+  `sensor.ais_vessel_tracker_<area>_vessels_this_hour` — distinct MMSI counts for
   the local calendar day and rolling last 3,600 seconds.
-- `event.ais_ship_tracker_<area>_last_ship_updated` — emits `ship_updated`
-  each time a different vessel becomes that area's last-passing-ship, after
+- `event.ais_vessel_tracker_<area>_last_vessel_updated` — emits `vessel_updated`
+  each time a different vessel becomes that area's last-passing-vessel, after
   its optional photo lookup completes, with a bounded 45-second wait.
-- `sensor.ais_ship_tracker_<area>_last_passing_ship` — the latest vessel and,
+- `sensor.ais_vessel_tracker_<area>_last_passing_vessel` — the latest vessel and,
   when available, its photo through the standard `entity_picture` attribute
   and the matching `picture_url` attribute.
-- `binary_sensor.ais_ship_tracker_<source>_connection` — one diagnostic
+- `binary_sensor.ais_vessel_tracker_<source>_connection` — one diagnostic
   connectivity sensor per enabled AIS source (AISStream, AIS-catcher, AISHub),
   `on` while that source is connected. Its `status`, `error`, and
   `last_message` attributes carry the same detail the old combined
   `AIS Connection Status` sensor exposed.
-- `zone.ais_ship_tracking_area` and one additional passive zone per configured
+- `zone.ais_vessel_tracking_area` and one additional passive zone per configured
   area — map representations of the selected Home Assistant source zones.
 
 When map entities are enabled, up to the configured maximum number of active
-vessels get sensors named `sensor.ais_ship_tracker_<ship-name>` with latitude,
+vessels get sensors named `sensor.ais_vessel_tracker_<vessel-name>` with latitude,
 longitude, speed, heading, and other AIS attributes. Their unique IDs contain
 the MMSI. When a vessel expires from the map
 timeout or is evicted by the limit, its entity and entity-registry entry are
@@ -162,7 +162,7 @@ intentionally unauthenticated because map marker CSS images cannot attach HA
 API credentials. The original provider URL is retained as `photo_source_url`.
 Vessels without a collected photo continue to use their AIS icon.
 
-Use the `ais_ship_tracker.refresh_vessel_photo` service to force a fresh
+Use the `ais_vessel_tracker.refresh_vessel_photo` service to force a fresh
 lookup. Target one or more AIS vessel sensors for normal use, provide a
 nine-digit `mmsi` for an automation-friendly stable identifier, or leave both
 empty to refresh all currently known vessels. The service uses the configured
@@ -174,25 +174,25 @@ lookup. Combined with leaving the target and MMSI empty, `ignore_cache`
 clears the entire photo cache for all configured areas and looks up every
 currently known vessel again.
 
-Use the `ais_ship_tracker.purge_vessel_photos` service to delete every
+Use the `ais_vessel_tracker.purge_vessel_photos` service to delete every
 cached vessel photo for all configured areas without looking up new ones —
 a plain cache clear, with no automatic resync. Purged vessels get a fresh
-photo the next time they become an area's last-passing-ship or a new map
+photo the next time they become an area's last-passing-vessel or a new map
 entity is created for them.
 
-The last-passing-ship sensors include the current vessel's AIS attributes, the
+The last-passing-vessel sensors include the current vessel's AIS attributes, the
 photo provider, source URL, photographer, and credit page. The generated
 `searxng_search_query` and `searxng_search_url`, plus any lookup error, are
-available on the photo lookup diagnostics. The last-passing-ship sensors,
+available on the photo lookup diagnostics. The last-passing-vessel sensors,
 temporary per-vessel sensors, and event entities expose `vessel_finder_url`
 whenever an MMSI is available. They also expose
 `marinetraffic_url` once a MarineTraffic internal `shipid` has been found in the
 SearXNG results. MarineTraffic does not accept an MMSI in that URL position:
 the URL must use the form
 `https://www.marinetraffic.com/en/ais/details/ships/shipid:<value>`. The
-internal ID is retained with the last-ship data, so the link remains available
+internal ID is retained with the last-vessel data, so the link remains available
 after a restart. For example, the default `Home` area uses
-`sensor.ais_ship_tracker_home_last_passing_ship`.
+`sensor.ais_vessel_tracker_home_last_passing_vessel`.
 
 ## Multiple AIS sources
 
@@ -200,7 +200,7 @@ The integration normalizes AISStream and AIS-catcher MQTT messages into the
 same vessel model. Configure AIS-catcher MQTT output as `JSON_FULL`: it
 contains the decoded position fields required for area tracking. `JSON_NMEA`
 contains the raw NMEA sentence and common metadata but not decoded coordinates,
-so it cannot by itself create a passing-ship event. Malformed messages and
+so it cannot by itself create a passing-vessel event. Malformed messages and
 payloads without a valid nine-digit MMSI are ignored. Position reports update
 the vessel and enter the configured area geofence. Static/voyage reports are
 retained and merged with later position reports.
@@ -210,12 +210,12 @@ The `source` attribute identifies the most recent normalized source ID
 human-readable label (`AISStream`, `AIS-catcher`, or `AISHub`). `sources_seen`
 and `sources_seen_names` provide the corresponding lists of all sources that
 have reported the vessel during the current runtime. A vessel entering an area
-produces one `ship_updated` event even if the same vessel is subsequently
+produces one `vessel_updated` event even if the same vessel is subsequently
 observed through another source.
 
 AISHub positions are marked as `aishub`; they represent the remote aggregate
 and are therefore not proof that the local antenna heard a vessel. The local
-receiver remains the authoritative source for confirming a ship was actually
+receiver remains the authoritative source for confirming a vessel was actually
 received at home. The AIS-catcher app's AISHub UDP output remains available for
 sharing this station's raw feed separately from the integration's optional
 AISHub inbound source.
@@ -231,4 +231,4 @@ Copyright © 2026 Philipp Schmitt.
 
 This project is licensed under the GNU General Public License v3.0 or later.
 The Home Assistant integration branding is included in
-`custom_components/ais_ship_tracker/brand`.
+`custom_components/ais_vessel_tracker/brand`.

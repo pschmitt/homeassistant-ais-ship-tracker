@@ -1,4 +1,4 @@
-"""Shared entity helpers for AIS Ship Tracker."""
+"""Shared entity helpers for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -17,14 +17,14 @@ def vessel_finder_url(mmsi: object) -> str | None:
     return f"https://www.vesselfinder.com/vessels/details/{value}" if value else None
 
 
-def marine_traffic_url(ship_id: object, mmsi: object = None) -> str | None:
+def marine_traffic_url(vessel_id: object, mmsi: object = None) -> str | None:
     """Return the MarineTraffic details URL for a vessel.
 
     Prefers the internal shipid (resolved via a search lookup) since that is
     MarineTraffic's canonical link, but falls back to their MMSI-based deep
     link so the attribute is still populated before that lookup succeeds.
     """
-    value = str(ship_id).strip() if ship_id is not None else ""
+    value = str(vessel_id).strip() if vessel_id is not None else ""
     if value.isdigit():
         return f"https://www.marinetraffic.com/en/ais/details/ships/shipid:{value}"
     mmsi_value = str(mmsi).strip() if mmsi is not None else ""
@@ -47,8 +47,8 @@ def remove_legacy_entities(
             registry.async_remove(registry_entry.entity_id)
 
 
-class AisShipTrackerEntity(Entity):
-    """Base entity for the AIS Ship Tracker service device."""
+class AisVesselTrackerEntity(Entity):
+    """Base entity for the AIS Vessel Tracker service device."""
 
     _attr_has_entity_name = True
 
@@ -56,14 +56,14 @@ class AisShipTrackerEntity(Entity):
         self,
         entry: ConfigEntry,
     ) -> None:
-        """Initialize an AIS Ship Tracker entity."""
+        """Initialize an AIS Vessel Tracker entity."""
         super().__init__()
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             entry_type=DeviceEntryType.SERVICE,
-            manufacturer="AIS Ship Tracker",
-            model="AIS Ship Tracker",
+            manufacturer="AIS Vessel Tracker",
+            model="AIS Vessel Tracker",
             configuration_url=(
                 entry.options.get(CONF_SEARXNG_URL)
                 or entry.data.get(CONF_SEARXNG_URL)

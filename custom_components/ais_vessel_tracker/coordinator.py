@@ -1,4 +1,4 @@
-"""SearXNG search and image-proxy handling for AIS Ship Tracker."""
+"""SearXNG search and image-proxy handling for AIS Vessel Tracker."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ _VESSEL_FINDER_NO_PHOTO = re.compile(
     r"(?:cool-ship|no[-_ ]photo|placeholder)",
     re.IGNORECASE,
 )
-_MARINE_TRAFFIC_SHIP_ID = re.compile(r"/shipid:(\d+)", re.IGNORECASE)
+_MARINE_TRAFFIC_VESSEL_ID = re.compile(r"/shipid:(\d+)", re.IGNORECASE)
 _RETRY_INTERVAL = timedelta(minutes=5)
 _PHOTO_STORE_VERSION = 1
 
@@ -55,7 +55,7 @@ def _search_photo_candidate(
     return None
 
 
-def _marine_traffic_ship_id(search_html: str) -> str | None:
+def _marine_traffic_vessel_id(search_html: str) -> str | None:
     """Extract MarineTraffic's internal vessel ID from search results."""
     soup = BeautifulSoup(search_html, "html.parser")
     values: list[str] = []
@@ -76,7 +76,7 @@ def _marine_traffic_ship_id(search_html: str) -> str | None:
     values.append(search_html)
     for value in values:
         normalized = unquote(unescape(value))
-        match = _MARINE_TRAFFIC_SHIP_ID.search(normalized)
+        match = _MARINE_TRAFFIC_VESSEL_ID.search(normalized)
         if match:
             return match.group(1)
     return None
@@ -165,7 +165,7 @@ def _marine_traffic_photo_candidate(
     return None
 
 
-class ShipPhotoCoordinator:
+class VesselPhotoCoordinator:
     """Keep the latest vessel photo and its lookup metadata."""
 
     def __init__(
@@ -191,7 +191,7 @@ class ShipPhotoCoordinator:
         self._image: bytes | None = None
         self._content_type = "image/jpeg"
         self._mmsi = ""
-        self._marine_traffic_ship_id = ""
+        self._marine_traffic_vessel_id = ""
         self._vessel_name = ""
         self._provider = ""
         self._photo_url = ""
@@ -229,9 +229,9 @@ class ShipPhotoCoordinator:
             self._cached_photos[str(stored["mmsi"])] = dict(stored)
         self._photo_records.update(self._cached_photos)
 
-        current_ship = self.tracker.last_ships.get(self.area_id)
-        if current_ship:
-            self._restore_cached_photo(str(current_ship.get("mmsi") or ""))
+        current_vessel = self.tracker.last_vessels.get(self.area_id)
+        if current_vessel:
+            self._restore_cached_photo(str(current_vessel.get("mmsi") or ""))
 
     def _restore_cached_photo(self, mmsi: str) -> bool:
         """Restore one cached MMSI photo into the active vessel state."""
@@ -270,8 +270,8 @@ class ShipPhotoCoordinator:
         self._content_type = content_type
         self._photo_images[mmsi] = (image, self._content_type)
         self._mmsi = mmsi
-        self._marine_traffic_ship_id = str(
-            stored.get("marine_traffic_ship_id") or ""
+        self._marine_traffic_vessel_id = str(
+            stored.get("marine_traffic_vessel_id") or ""
         )
         self._vessel_name = str(stored.get("vessel_name") or "")
         self._provider = str(stored.get("provider") or "")
@@ -299,7 +299,7 @@ class ShipPhotoCoordinator:
             "image": base64.b64encode(self._image or b"").decode("ascii"),
             "content_type": self._content_type,
             "mmsi": self._mmsi,
-            "marine_traffic_ship_id": self._marine_traffic_ship_id,
+            "marine_traffic_vessel_id": self._marine_traffic_vessel_id,
             "vessel_name": self._vessel_name,
             "provider": self._provider,
             "photo_url": self._photo_url,
@@ -339,7 +339,7 @@ class ShipPhotoCoordinator:
         """Reset the active photo pointer. Caller must hold ``_lock``."""
         self._image = None
         self._mmsi = ""
-        self._marine_traffic_ship_id = ""
+        self._marine_traffic_vessel_id = ""
         self._provider = ""
         self._photo_url = ""
         self._photo_author = ""
@@ -390,26 +390,26 @@ class ShipPhotoCoordinator:
         return self._vessel_name
 
     @property
-    def marine_traffic_ship_id(self) -> str:
+    def marine_traffic_vessel_id(self) -> str:
         """Return MarineTraffic's internal vessel ID."""
-        return self._marine_traffic_ship_id
+        return self._marine_traffic_vessel_id
 
     @property
     def attributes(self) -> dict[str, Any]:
         """Return the current vessel and photo lookup details."""
-        ship = self.tracker.last_ships.get(self.area_id, {})
-        ship_attributes = {
+        vessel = self.tracker.last_vessels.get(self.area_id, {})
+        vessel_attributes = {
             key: value
-            for key, value in ship.items()
+            for key, value in vessel.items()
             if not key.startswith("_") and value is not None
         }
         vessel_name = str(
-            ship_attributes.get("ship_name") or self._vessel_name or ""
+            vessel_attributes.get("vessel_name") or self._vessel_name or ""
         )
-        mmsi = str(ship_attributes.get("mmsi") or self._mmsi or "")
-        marine_ship_id = str(
-            ship_attributes.get("marine_traffic_ship_id")
-            or self._marine_traffic_ship_id
+        mmsi = str(vessel_attributes.get("mmsi") or self._mmsi or "")
+        marine_vessel_id = str(
+            vessel_attributes.get("marine_traffic_vessel_id")
+            or self._marine_traffic_vessel_id
             or ""
         )
         search_query = " ".join(part for part in (vessel_name, mmsi) if part)
@@ -423,12 +423,12 @@ class ShipPhotoCoordinator:
             part for part in (self._photo_author, self._provider) if part
         )
         return {
-            **ship_attributes,
+            **vessel_attributes,
             "vessel_name": vessel_name or None,
             "mmsi": mmsi or None,
             "vessel_finder_url": vessel_finder_url(mmsi),
-            "marine_traffic_ship_id": marine_ship_id or None,
-            "marinetraffic_url": marine_traffic_url(marine_ship_id, mmsi),
+            "marine_traffic_vessel_id": marine_vessel_id or None,
+            "marinetraffic_url": marine_traffic_url(marine_vessel_id, mmsi),
             "provider": self._provider or None,
             "photo_origin": self._provider or None,
             "photo_url": self._photo_url or None,
@@ -446,16 +446,16 @@ class ShipPhotoCoordinator:
     @property
     def needs_refresh(self) -> bool:
         """Return whether the current entity needs a lookup."""
-        ship = self.tracker.last_ships.get(self.area_id)
-        if ship is None:
+        vessel = self.tracker.last_vessels.get(self.area_id)
+        if vessel is None:
             return False
-        mmsi = str(ship.get("mmsi", ""))
+        mmsi = str(vessel.get("mmsi", ""))
         if mmsi != self._mmsi:
             return True
         if (
             self._image is not None
             and self._photo_cacheable
-            and self._marine_traffic_ship_id
+            and self._marine_traffic_vessel_id
         ):
             return False
         return (
@@ -479,16 +479,16 @@ class ShipPhotoCoordinator:
         self,
         *,
         force: bool = False,
-        ship_override: dict[str, Any] | None = None,
+        vessel_override: dict[str, Any] | None = None,
     ) -> None:
         """Search for and cache the current vessel photo."""
-        ship = ship_override or self.tracker.last_ships.get(self.area_id)
-        if ship is None:
+        vessel = vessel_override or self.tracker.last_vessels.get(self.area_id)
+        if vessel is None:
             self._set_error("No vessel has been detected yet")
             return
 
-        vessel_name = str(ship.get("ship_name") or "Unknown ship")
-        mmsi = str(ship.get("mmsi") or "")
+        vessel_name = str(vessel.get("vessel_name") or "Unknown vessel")
+        mmsi = str(vessel.get("mmsi") or "")
         if not mmsi:
             self._set_error("Tracked vessel has no MMSI")
             return
@@ -505,14 +505,14 @@ class ShipPhotoCoordinator:
             if (
                 (mmsi != self._mmsi or self._image is None)
                 and self._restore_cached_photo(mmsi)
-                and self._marine_traffic_ship_id
+                and self._marine_traffic_vessel_id
             ):
                 self._notify_listeners()
                 return
             self._vessel_name = vessel_name
             self._mmsi = mmsi
-            self._marine_traffic_ship_id = str(
-                ship.get("marine_traffic_ship_id") or ""
+            self._marine_traffic_vessel_id = str(
+                vessel.get("marine_traffic_vessel_id") or ""
             )
             self._provider = ""
             self._photo_url = ""
@@ -525,7 +525,7 @@ class ShipPhotoCoordinator:
             photo_url: str | None = None
             provider = ""
             photo_cacheable = True
-            photo_headers = {"User-Agent": "Home Assistant AIS ship photo lookup"}
+            photo_headers = {"User-Agent": "Home Assistant AIS vessel photo lookup"}
             photo_auth = self._auth
             photo_via_searxng = False
             details_url = vessel_finder_url(mmsi)
@@ -541,7 +541,7 @@ class ShipPhotoCoordinator:
                         search_url,
                         headers={
                             "Accept": "text/html",
-                            "User-Agent": "Home Assistant AIS ship photo lookup",
+                            "User-Agent": "Home Assistant AIS vessel photo lookup",
                         },
                         auth=self._auth,
                         timeout=15,
@@ -549,10 +549,10 @@ class ShipPhotoCoordinator:
                         response.raise_for_status()
                         search_html = await response.text()
                     self._set_service_issue(None)
-                    marine_ship_id = _marine_traffic_ship_id(search_html)
-                    if marine_ship_id:
-                        self._marine_traffic_ship_id = marine_ship_id
-                        self.tracker.set_marine_traffic_ship_id(mmsi, marine_ship_id)
+                    marine_vessel_id = _marine_traffic_vessel_id(search_html)
+                    if marine_vessel_id:
+                        self._marine_traffic_vessel_id = marine_vessel_id
+                        self.tracker.set_marine_traffic_vessel_id(mmsi, marine_vessel_id)
                     search_candidate = _search_photo_candidate(
                         search_html, self.searxng_url
                     )
@@ -565,14 +565,14 @@ class ShipPhotoCoordinator:
                     elif err.status in (404, 429):
                         self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
                     _LOGGER.warning(
-                        "AIS Ship Tracker SearXNG lookup failed for %s: HTTP %s; "
+                        "AIS Vessel Tracker SearXNG lookup failed for %s: HTTP %s; "
                         "trying direct provider fallbacks",
                         mmsi,
                         err.status,
                     )
                 except (ClientError, asyncio.TimeoutError) as err:
                     _LOGGER.warning(
-                        "AIS Ship Tracker SearXNG lookup failed for %s: %s; "
+                        "AIS Vessel Tracker SearXNG lookup failed for %s: %s; "
                         "trying direct provider fallbacks",
                         mmsi,
                         err,
@@ -649,7 +649,7 @@ class ShipPhotoCoordinator:
                                 err,
                             )
             if photo_url is None:
-                marine_url = marine_traffic_url(self._marine_traffic_ship_id, mmsi)
+                marine_url = marine_traffic_url(self._marine_traffic_vessel_id, mmsi)
                 if marine_url:
                     try:
                         async with self.session.get(
@@ -729,13 +729,13 @@ class ShipPhotoCoordinator:
                     self._set_service_issue(ISSUE_SEARXNG_ENDPOINT)
                 self._set_error(f"Photo lookup failed with HTTP {err.status}")
                 _LOGGER.warning(
-                    "AIS Ship Tracker photo lookup failed for %s: HTTP %s",
+                    "AIS Vessel Tracker photo lookup failed for %s: HTTP %s",
                     mmsi,
                     err.status,
                 )
             except (ClientError, asyncio.TimeoutError) as err:
                 self._set_error(f"Photo lookup failed: {err}")
-                _LOGGER.warning("AIS ship photo lookup failed for %s: %s", mmsi, err)
+                _LOGGER.warning("AIS vessel photo lookup failed for %s: %s", mmsi, err)
             finally:
                 self._notify_listeners()
 

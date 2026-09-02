@@ -5,7 +5,7 @@ refresh_vessel_photo:
     currently known vessels when no target or MMSI is provided.
   target:
     entity:
-      integration: ais_ship_tracker
+      integration: ais_vessel_tracker
       domain: sensor
   fields:
     mmsi:
@@ -29,4 +29,4 @@ purge_vessel_photos:
   description: >-
     Delete every cached vessel photo for all configured areas without
     looking up new ones. Photos are re-fetched the next time a vessel
-    becomes an area's last-passing-ship or a new map entity is created.
+    becomes an area's last-passing-vessel or a new map entity is created.

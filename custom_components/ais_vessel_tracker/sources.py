@@ -42,7 +42,7 @@ class AisObservation:
     speed_knots: float | None = None
     course: float | None = None
     heading: int | None = None
-    ship_name: str | None = None
+    vessel_name: str | None = None
     destination: str | None = None
     eta: str | None = None
     vessel_type: str | None = None
@@ -86,7 +86,7 @@ def parse_aiscatcher_message(
         speed_knots=_float(payload.get("speed")),
         course=_float(payload.get("course")),
         heading=_int(payload.get("heading")),
-        ship_name=_text(payload.get("shipname")),
+        vessel_name=_text(payload.get("shipname")),
         destination=static_data.get("destination"),
         eta=static_data.get("eta"),
         vessel_type=static_data.get("vessel_type"),
@@ -113,7 +113,7 @@ def parse_aisstream_message(message: dict[str, Any]) -> AisObservation | None:
         return AisObservation(
             source=SOURCE_AISSTREAM,
             mmsi=mmsi,
-            ship_name=_text(metadata.get("ShipName")),
+            vessel_name=_text(metadata.get("ShipName")),
             static_data=_static_data_from_aisstream(static),
         )
 
@@ -134,7 +134,7 @@ def parse_aisstream_message(message: dict[str, Any]) -> AisObservation | None:
         speed_knots=_float(report.get("Sog")),
         course=_float(report.get("Cog")),
         heading=_int(report.get("TrueHeading")),
-        ship_name=_text(metadata.get("ShipName")),
+        vessel_name=_text(metadata.get("ShipName")),
         navigational_status=_int(report.get("NavigationalStatus")),
         vessel_class=vessel_class,
     )
@@ -171,7 +171,7 @@ def parse_aishub_response(payload: Any) -> list[AisObservation] | None:
                 speed_knots=_available_float(record.get("SOG"), unavailable=102.4),
                 course=_available_float(record.get("COG"), unavailable=360),
                 heading=_available_int(record.get("HEADING"), unavailable=511),
-                ship_name=_text(record.get("NAME")),
+                vessel_name=_text(record.get("NAME")),
                 navigational_status=_int(record.get("NAVSTAT")),
                 source_timestamp=_aishub_timestamp(record),
                 static_data=_static_data_from_aishub(record),
@@ -200,7 +200,7 @@ def _static_data_from_aishub(record: dict[str, Any]) -> dict[str, Any]:
         "vessel_type": _vessel_type(record.get("TYPE")),
         "call_sign": _text(record.get("CALLSIGN")),
         "imo_number": _text(record.get("IMO")),
-        "ship_length": _sum_dimensions(record.get("A"), record.get("B")),
+        "vessel_length": _sum_dimensions(record.get("A"), record.get("B")),
     }
     return {key: value for key, value in values.items() if value is not None}
 
@@ -214,7 +214,7 @@ def _static_data_from_aisstream(static: dict[str, Any]) -> dict[str, Any]:
         "vessel_type": _vessel_type(static.get("Type")),
         "call_sign": _text(static.get("CallSign")),
         "imo_number": _text(static.get("ImoNumber")),
-        "ship_length": _sum_dimensions(dimensions.get("A"), dimensions.get("B")),
+        "vessel_length": _sum_dimensions(dimensions.get("A"), dimensions.get("B")),
     }
     return {key: value for key, value in values.items() if value is not None}
 
@@ -262,7 +262,7 @@ def _mmsi(value: Any) -> str | None:
     """Normalize an MMSI value without accepting malformed identifiers.
 
     AIS-catcher emits MMSI as a JSON integer.  JSON integers do not preserve
-    leading zeroes, which are valid for some non-ship AIS identities.  Keep
+    leading zeroes, which are valid for some non-vessel AIS identities.  Keep
     string input strict, but restore those zeroes for integer input.
     """
     if isinstance(value, bool):
@@ -368,8 +368,8 @@ def _vessel_type(type_number: Any) -> str | None:
         (37, 37, "Pleasure craft"),
         (40, 49, "High-speed craft"),
         (50, 59, "Service vessel"),
-        (60, 69, "Passenger ship"),
-        (70, 79, "Cargo ship"),
+        (60, 69, "Passenger vessel"),
+        (70, 79, "Cargo vessel"),
         (80, 89, "Tanker"),
         (90, 99, "Other"),
     ):

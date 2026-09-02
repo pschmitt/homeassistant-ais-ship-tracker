@@ -11,10 +11,10 @@ from pathlib import Path
 MODULE_PATH = (
     Path(__file__).parents[1]
     / "custom_components"
-    / "ais_ship_tracker"
+    / "ais_vessel_tracker"
     / "sources.py"
 )
-SPEC = importlib.util.spec_from_file_location("ais_ship_tracker_sources", MODULE_PATH)
+SPEC = importlib.util.spec_from_file_location("ais_vessel_tracker_sources", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 sources = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = sources
@@ -106,7 +106,7 @@ class SourceParserTest(unittest.TestCase):
 
         self.assertIsNotNone(observation)
         assert observation is not None
-        self.assertEqual(observation.ship_name, "TEST VESSEL")
+        self.assertEqual(observation.vessel_name, "TEST VESSEL")
         self.assertEqual(observation.static_data["destination"], "BERLIN")
         self.assertEqual(observation.static_data["imo_number"], "1234567")
 
@@ -168,7 +168,7 @@ class SourceParserTest(unittest.TestCase):
         self.assertEqual(observation.source, "aishub")
         self.assertEqual(observation.mmsi, "211784980")
         self.assertEqual(observation.latitude, 52.52264)
-        self.assertEqual(observation.static_data["ship_length"], 30)
+        self.assertEqual(observation.static_data["vessel_length"], 30)
         self.assertEqual(observation.source_timestamp.year, 2026)
 
     def test_aishub_unavailable_sentinels_are_normalized(self) -> None:
