@@ -9,6 +9,7 @@
           "api_key": "AISStream-API-Schlüssel",
           "local_mqtt_enabled": "Lokale AIS-catcher-MQTT-Quelle aktivieren",
           "local_mqtt_topic": "AIS-catcher-MQTT-Thema",
+          "include_non_vessel_stations": "Basisstationen, Navigationshilfen und SAR-Flugzeuge einschließen",
           "aishub_enabled": "AISHub-Quelle aktivieren",
           "aishub_username": "AISHub-Benutzername/API-Schlüssel",
           "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
@@ -103,7 +104,11 @@
         "description": "Verarbeite dekodierte JSON_FULL-Nachrichten des lokalen AIS-catcher-Add-ons über Home Assistant MQTT.",
         "data": {
           "local_mqtt_enabled": "Lokale AIS-catcher-MQTT-Quelle aktivieren",
-          "local_mqtt_topic": "AIS-catcher-MQTT-Thema"
+          "local_mqtt_topic": "AIS-catcher-MQTT-Thema",
+          "include_non_vessel_stations": "Basisstationen, Navigationshilfen und SAR-Flugzeuge einschließen"
+        },
+        "data_description": {
+          "include_non_vessel_stations": "Standardmäßig deaktiviert, sodass nur Schiffe angezeigt werden. Der AIS-catcher-Feed enthält auch Nicht-Schiffs-Sender; aktiviere dies, um sie ebenfalls auf der Karte zu sehen."
         },
         "error": {
           "invalid_mqtt_topic": "Gib ein gültiges MQTT-Abonnementthema ein.",

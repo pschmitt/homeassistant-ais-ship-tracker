@@ -31,6 +31,7 @@ from .const import (
     CONF_AREAS,
     CONF_ENABLE_MAP_ENTITIES,
     CONF_INCLUDE_CLASS_B,
+    CONF_INCLUDE_NON_VESSEL_STATIONS,
     CONF_MAP_RADIUS,
     CONF_MAP_TIMEOUT_MINUTES,
     CONF_MAX_MAP_ENTITIES,
@@ -106,6 +107,10 @@ def _common_schema(
                     default=defaults.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"),
                 ): TextSelector(),
                 vol.Required(
+                    CONF_INCLUDE_NON_VESSEL_STATIONS,
+                    default=defaults.get(CONF_INCLUDE_NON_VESSEL_STATIONS, False),
+                ): BooleanSelector(),
+                vol.Required(
                     CONF_AISHUB_ENABLED,
                     default=defaults.get(CONF_AISHUB_ENABLED, False),
                 ): BooleanSelector(),
@@ -153,6 +158,10 @@ def _local_mqtt_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_LOCAL_MQTT_TOPIC,
                 default=defaults.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"),
             ): TextSelector(),
+            vol.Required(
+                CONF_INCLUDE_NON_VESSEL_STATIONS,
+                default=defaults.get(CONF_INCLUDE_NON_VESSEL_STATIONS, False),
+            ): BooleanSelector(),
         }
     )
 

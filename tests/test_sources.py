@@ -80,7 +80,7 @@ class SourceParserTest(unittest.TestCase):
             sources.parse_aiscatcher_message({"mmsi": 123456})
         )
 
-    def test_aiscatcher_non_vessel_message_types_are_ignored(self) -> None:
+    def test_aiscatcher_non_vessel_message_types_are_ignored_by_default(self) -> None:
         for message_type in (4, 9, 11, 21):
             observation = sources.parse_aiscatcher_message(
                 {
@@ -91,6 +91,21 @@ class SourceParserTest(unittest.TestCase):
                 }
             )
             self.assertIsNone(observation, f"message type {message_type}")
+
+    def test_aiscatcher_non_vessel_message_types_can_be_kept(self) -> None:
+        for message_type in (4, 9, 11, 21):
+            observation = sources.parse_aiscatcher_message(
+                {
+                    "mmsi": 2182801,
+                    "type": message_type,
+                    "lat": 52.52,
+                    "lon": 13.31,
+                },
+                include_non_vessel_stations=True,
+            )
+            self.assertIsNotNone(observation, f"message type {message_type}")
+            assert observation is not None
+            self.assertEqual(observation.message_type, message_type)
 
     def test_aiscatcher_static_data_is_normalized(self) -> None:
         observation = sources.parse_aiscatcher_message(

@@ -21,6 +21,7 @@ from .areas import area_bounding_box, area_id, area_zone_location, configured_ar
 from .const import (CONF_AISSTREAM_ENABLED, CONF_API_KEY,
                     CONF_AISHUB_ENABLED, CONF_AISHUB_USERNAME,
                     CONF_ENABLE_MAP_ENTITIES, CONF_INCLUDE_CLASS_B,
+                    CONF_INCLUDE_NON_VESSEL_STATIONS,
                     CONF_LOCAL_MQTT_ENABLED, CONF_LOCAL_MQTT_TOPIC,
                     CONF_MAP_TIMEOUT_MINUTES, CONF_MAX_MAP_ENTITIES,
                     CONF_VESSEL_WATCHLIST, DOMAIN, ISSUE_AIS_AUTHENTICATION,
@@ -177,6 +178,11 @@ class AisTrackerCoordinator:
         return str(self.settings.get(CONF_LOCAL_MQTT_TOPIC, "ais-catcher/ais"))
 
     @property
+    def include_non_vessel_stations(self) -> bool:
+        """Return whether base stations, AtoN, and SAR aircraft are kept."""
+        return bool(self.settings.get(CONF_INCLUDE_NON_VESSEL_STATIONS, False))
+
+    @property
     def aishub_enabled(self) -> bool:
         """Return whether the AISHub source is enabled."""
         return bool(self.settings.get(CONF_AISHUB_ENABLED, False))
@@ -314,7 +320,10 @@ class AisTrackerCoordinator:
     @callback
     def _mqtt_message_received(self, message: Any) -> None:
         """Handle one message from the local AIS-catcher MQTT source."""
-        observation = parse_aiscatcher_message(message.payload)
+        observation = parse_aiscatcher_message(
+            message.payload,
+            include_non_vessel_stations=self.include_non_vessel_stations,
+        )
         if observation is None:
             _LOGGER.debug("Ignoring invalid AIS-catcher MQTT payload")
             return

@@ -21,7 +21,8 @@ SOURCE_LABELS = {
 # AIS message types that report a station or object rather than a vessel:
 # 4/11 base station (and its UTC/date response), 9 SAR aircraft, 21
 # aid-to-navigation. AISStream's own message-type filter already excludes
-# these; AIS-catcher's JSON_FULL feed does not, so they are dropped here.
+# these; AIS-catcher's JSON_FULL feed does not, so they are dropped here by
+# default (see include_non_vessel_stations on parse_aiscatcher_message).
 _NON_VESSEL_MESSAGE_TYPES = frozenset({4, 9, 11, 21})
 
 
@@ -59,8 +60,14 @@ class AisObservation:
 
 def parse_aiscatcher_message(
     payload: str | bytes | bytearray | dict[str, Any],
+    *,
+    include_non_vessel_stations: bool = False,
 ) -> AisObservation | None:
-    """Parse one AIS-catcher JSON MQTT message."""
+    """Parse one AIS-catcher JSON MQTT message.
+
+    By default, base stations, aids to navigation, and SAR aircraft are
+    dropped; set include_non_vessel_stations to keep them.
+    """
     if isinstance(payload, (str, bytes, bytearray)):
         try:
             payload = json.loads(payload)
@@ -74,7 +81,7 @@ def parse_aiscatcher_message(
         return None
 
     message_type = _int(payload.get("type"))
-    if message_type in _NON_VESSEL_MESSAGE_TYPES:
+    if not include_non_vessel_stations and message_type in _NON_VESSEL_MESSAGE_TYPES:
         return None
 
     static_data = _static_data_from_aiscatcher(payload)

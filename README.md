@@ -47,6 +47,13 @@ the topic configured in the AIS-catcher app (the default is
 `ais-catcher/ais`). The integration subscribes through Home Assistant's MQTT
 integration; it does not connect to Mosquitto directly.
 
+AIS-catcher's feed also carries non-vessel transmitters: base stations, aids
+to navigation (buoys, lighthouses), and SAR aircraft. These are filtered out
+by default so only vessels show up; enable **Include base stations, aids to
+navigation, and SAR aircraft** in the local AIS-catcher MQTT source settings
+to keep them. This only affects the local AIS-catcher source -- AISStream's
+own subscription filter already excludes these message types outright.
+
 AISHub is an optional remote source. Enable it under **AISHub source** and
 enter the AISHub username/API credential once your contributor account has
 been approved. The integration requests only recent positions within the
