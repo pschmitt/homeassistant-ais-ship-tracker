@@ -161,7 +161,6 @@
   "entity": {
     "sensor": {
       "last_passing_ship": {"name": "Last Passing Ship"},
-      "connection_status": {"name": "AIS Connection Status"},
       "ships_today": {"name": "Ships Today"},
       "ships_this_hour": {"name": "Ships in Last Hour"}
     },
@@ -211,6 +210,40 @@
           "configure": {
             "title": "Fix AIS Ship Tracker connection",
             "description": "Check the AISStream API key and tracking settings, then try again.",
+            "data": {
+              "api_key": "AISStream API key",
+              "longitude_west": "West longitude",
+              "latitude_south": "South latitude",
+              "longitude_east": "East longitude",
+              "latitude_north": "North latitude",
+              "zone_radius": "Target zone radius (metres)",
+              "enable_map_entities": "Create map vessel entities",
+              "include_class_b": "Include Class B transponders",
+              "vessel_watchlist": "MMSI watchlist (comma-separated, optional)",
+              "map_timeout_minutes": "Map vessel timeout (minutes)",
+              "max_map_entities": "Maximum active vessel entities",
+              "searxng_url": "SearXNG URL (optional)",
+              "searxng_username": "HTTP Basic Auth username for SearXNG (optional)",
+              "searxng_password": "HTTP Basic Auth password for SearXNG (optional)"
+            },
+            "error": {
+              "invalid_api_key": "Enter an AISStream API key.",
+              "invalid_bounds": "The south/west coordinates must be lower than the north/east coordinates.",
+              "invalid_radius": "Enter a positive target zone radius.",
+              "invalid_url": "Enter a valid HTTP or HTTPS URL."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "The AIS Ship Tracker config entry no longer exists."}
+      }
+    },
+    "source_unavailable": {
+      "title": "The {source} AIS source is unavailable",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "Fix the {source} AIS source",
+            "description": "{source} reported: {error}. Check its settings, then try again.",
             "data": {
               "api_key": "AISStream API key",
               "longitude_west": "West longitude",

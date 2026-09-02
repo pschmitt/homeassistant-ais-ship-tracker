@@ -9,7 +9,6 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_time_change
 
@@ -22,7 +21,7 @@ from .entity import (
     remove_legacy_entities,
     vessel_finder_url,
 )
-from .sources import SOURCE_AISHUB, SOURCE_LOCAL_MQTT, source_label
+from .sources import source_label
 from .tracker import AisTrackerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -73,7 +72,7 @@ async def async_setup_entry(
     """Set up the persistent and optional map sensors."""
     tracker = entry.runtime_data.tracker
     areas = configured_areas(tracker.settings)
-    remove_legacy_entities(hass, entry, {"last_passing_ship"})
+    remove_legacy_entities(hass, entry, {"last_passing_ship", "ais_connection_status"})
     remove_legacy_entities(
         hass,
         entry,
@@ -83,7 +82,7 @@ async def async_setup_entry(
         },
     )
     photos = tuple(entry.runtime_data.photos.values())
-    entities: list[SensorEntity] = [AisConnectionStatusSensor(entry)]
+    entities: list[SensorEntity] = []
     entities.extend(
         LastPassingShipSensor(entry, area, index, photos)
         for index, area in enumerate(areas, 1)
@@ -268,49 +267,6 @@ class LastPassingShipSensor(AisShipTrackerEntity, SensorEntity):
         )
         for photo in self._photos:
             self.async_on_remove(photo.async_add_listener(self.async_write_ha_state))
-
-
-class AisConnectionStatusSensor(AisShipTrackerEntity, SensorEntity):
-    """Expose the configured AIS source connection state."""
-
-    _attr_has_entity_name = False
-    _attr_icon = "mdi:lan-connect"
-    _attr_name = "AIS Connection Status"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, entry: AisShipTrackerConfigEntry) -> None:
-        """Initialize the connection sensor."""
-        super().__init__(entry)
-        self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_unique_id = "ais_connection_status"
-        self.coordinator = entry.runtime_data.tracker
-
-    @property
-    def native_value(self) -> str:
-        """Return the current connection state."""
-        if self.coordinator.aisstream_enabled:
-            return self.coordinator.connection_status
-        for source in (SOURCE_LOCAL_MQTT, SOURCE_AISHUB):
-            if source in self.coordinator.source_status:
-                return self.coordinator.source_status[source]
-        return "Disconnected"
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return connection diagnostics."""
-        return {
-            "error": self.coordinator.connection_error,
-            "sources": dict(self.coordinator.source_status),
-            "source_errors": dict(self.coordinator.source_errors),
-            "last_message": dict(self.coordinator.source_last_message),
-        }
-
-    async def async_added_to_hass(self) -> None:
-        """Subscribe to tracker updates."""
-        await super().async_added_to_hass()
-        self.async_on_remove(
-            self.coordinator.async_add_listener(self.async_write_ha_state)
-        )
 
 
 class ShipCountSensor(AisShipTrackerEntity, SensorEntity):

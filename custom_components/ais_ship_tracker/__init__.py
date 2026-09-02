@@ -80,7 +80,7 @@ class AisShipPhotoView(HomeAssistantView):
 def _platforms_for_entry(entry: AisShipTrackerConfigEntry) -> list[str]:
     """Return only platforms that were forwarded for this config entry."""
     del entry
-    return ["sensor", "event"]
+    return ["sensor", "event", "binary_sensor"]
 
 
 async def async_migrate_entry(

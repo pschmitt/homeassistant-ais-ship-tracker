@@ -161,7 +161,6 @@
   "entity": {
     "sensor": {
       "last_passing_ship": {"name": "Zuletzt vorbeigefahrenes Schiff"},
-      "connection_status": {"name": "AIS-Verbindungsstatus"},
       "ships_today": {"name": "Schiffe heute"},
       "ships_this_hour": {"name": "Schiffe in der letzten Stunde"}
     },
@@ -211,6 +210,40 @@
           "configure": {
             "title": "AIS-Schiffsverfolgungs-Verbindung korrigieren",
             "description": "Prüfe den AISStream-API-Schlüssel und die Verfolgungseinstellungen und versuche es erneut.",
+            "data": {
+              "api_key": "AISStream-API-Schlüssel",
+              "longitude_west": "Westlicher Längengrad",
+              "latitude_south": "Südlicher Breitengrad",
+              "longitude_east": "Östlicher Längengrad",
+              "latitude_north": "Nördlicher Breitengrad",
+              "zone_radius": "Radius der Zielzone (Meter)",
+              "enable_map_entities": "Schiffs-Entitäten für die Karte erstellen",
+              "include_class_b": "Class-B-Transponder einschließen",
+              "vessel_watchlist": "MMSI-Beobachtungsliste (optional, kommagetrennt)",
+              "map_timeout_minutes": "Timeout für Kartenschiffe (Minuten)",
+              "max_map_entities": "Maximale Anzahl aktiver Schiffs-Entitäten",
+              "searxng_url": "SearXNG-URL (optional)",
+              "searxng_username": "HTTP-Basic-Auth-Benutzername für SearXNG (optional)",
+              "searxng_password": "HTTP-Basic-Auth-Passwort für SearXNG (optional)"
+            },
+            "error": {
+              "invalid_api_key": "Gib einen AISStream-API-Schlüssel ein.",
+              "invalid_bounds": "Die Koordinaten für Süd/West müssen kleiner als die für Nord/Ost sein.",
+              "invalid_radius": "Gib einen positiven Radius für die Zielzone ein.",
+              "invalid_url": "Gib eine gültige HTTP- oder HTTPS-URL ein."
+            }
+          }
+        },
+        "abort": {"entry_not_found": "Der Eintrag für die AIS-Schiffsverfolgung existiert nicht mehr."}
+      }
+    },
+    "source_unavailable": {
+      "title": "Die AIS-Quelle {source} ist nicht erreichbar",
+      "fix_flow": {
+        "step": {
+          "configure": {
+            "title": "AIS-Quelle {source} korrigieren",
+            "description": "{source} meldet: {error}. Prüfe die Einstellungen und versuche es erneut.",
             "data": {
               "api_key": "AISStream-API-Schlüssel",
               "longitude_west": "Westlicher Längengrad",

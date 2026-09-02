@@ -20,7 +20,9 @@ Assistant integration; no additional daemon is needed.
 - Config flow and options flow for one shared API key, multiple named tracking
   areas, filters, map retention, and optional photo lookup with persistent
   caching.
-- Repairs for AISStream authentication/subscription and SearXNG configuration failures.
+- Repairs for AISStream authentication/subscription, SearXNG configuration
+  failures, and any other enabled AIS source (AIS-catcher, AISHub) that stops
+  working, automatically cleared once that source recovers.
 - Source-aware vessel data: observations record their source, and duplicate
   reports from multiple sources are merged by MMSI.
 - Diagnostics with credentials redacted.
@@ -133,8 +135,11 @@ The integration creates these entities for every configured tracking area:
 - `sensor.ais_ship_tracker_<area>_last_passing_ship` — the latest vessel and,
   when available, its photo through the standard `entity_picture` attribute
   and the matching `picture_url` attribute.
-- `sensor.ais_ship_tracker_ais_connection_status` — diagnostic connection
-  state.
+- `binary_sensor.ais_ship_tracker_<source>_connection` — one diagnostic
+  connectivity sensor per enabled AIS source (AISStream, AIS-catcher, AISHub),
+  `on` while that source is connected. Its `status`, `error`, and
+  `last_message` attributes carry the same detail the old combined
+  `AIS Connection Status` sensor exposed.
 - `zone.ais_ship_tracking_area` and one additional passive zone per configured
   area — map representations of the selected Home Assistant source zones.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "ais_ship_tracker"
-PLATFORMS = ["sensor", "event"]
+PLATFORMS = ["sensor", "event", "binary_sensor"]
 
 CONF_API_KEY = "api_key"
 CONF_AISSTREAM_ENABLED = "aisstream_enabled"
@@ -41,5 +41,6 @@ ISSUE_SEARXNG_AUTHENTICATION = "searxng_authentication"
 ISSUE_SEARXNG_ENDPOINT = "searxng_endpoint"
 ISSUE_AIS_AUTHENTICATION = "ais_authentication"
 ISSUE_AIS_CONNECTION = "ais_connection"
+ISSUE_SOURCE_UNAVAILABLE = "source_unavailable"
 
 ZONE_NAME = "AIS Ship Tracking Area"

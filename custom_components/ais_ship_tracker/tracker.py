@@ -24,10 +24,11 @@ from .const import (CONF_AISSTREAM_ENABLED, CONF_API_KEY,
                     CONF_LOCAL_MQTT_ENABLED, CONF_LOCAL_MQTT_TOPIC,
                     CONF_MAP_TIMEOUT_MINUTES, CONF_MAX_MAP_ENTITIES,
                     CONF_VESSEL_WATCHLIST, DOMAIN, ISSUE_AIS_AUTHENTICATION,
-                    ISSUE_AIS_CONNECTION)
+                    ISSUE_AIS_CONNECTION, ISSUE_SOURCE_UNAVAILABLE)
 from .sources import (SOURCE_AISSTREAM, SOURCE_LOCAL_MQTT, AisObservation,
                       SOURCE_AISHUB, parse_aiscatcher_message,
-                      parse_aishub_response, parse_aisstream_message)
+                      parse_aishub_response, parse_aisstream_message,
+                      source_label)
 
 _LOGGER = logging.getLogger(__name__)
 _AISSTREAM_URL = "wss://stream.aisstream.io/v0/stream"
@@ -38,6 +39,10 @@ _AISHUB_POSITION_AGE_MINUTES = 5
 # handled below so older installs do not require a Store migration callback.
 _STORE_VERSION = 1
 _RECONNECT_DELAY = 10
+# AISStream raises its own more specific authentication/connection repairs
+# (see _create_authentication_issue/_create_connection_issue below), so only
+# the other, optional sources get the generic "source unavailable" repair.
+_ISSUE_ELIGIBLE_SOURCES = frozenset({SOURCE_LOCAL_MQTT, SOURCE_AISHUB})
 
 _NAV_STATUS = {
     0: "Under way using engine",
@@ -287,10 +292,10 @@ class AisTrackerCoordinator:
                 qos=0,
             )
         except Exception as error:  # noqa: BLE001
-            self.source_status[SOURCE_LOCAL_MQTT] = "Unavailable"
+            self._set_source_status(SOURCE_LOCAL_MQTT, "Unavailable", str(error))
             _LOGGER.warning("Local AIS-catcher MQTT source unavailable: %s", error)
             return
-        self.source_status[SOURCE_LOCAL_MQTT] = "Connected"
+        self._set_source_status(SOURCE_LOCAL_MQTT, "Connected")
         _LOGGER.info(
             "Subscribed to local AIS-catcher MQTT topic %s", self.local_mqtt_topic
         )
@@ -718,7 +723,36 @@ class AisTrackerCoordinator:
             self.source_errors[source] = error
         else:
             self.source_errors.pop(source, None)
+        if source in _ISSUE_ELIGIBLE_SOURCES:
+            if status == "Connected":
+                self._clear_source_issue(source)
+            elif status == "Unavailable":
+                self._create_source_issue(source, error)
         self._notify()
+
+    def _create_source_issue(self, source: str, error: str | None) -> None:
+        """Raise a repair for an optional source that stopped working."""
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            f"{ISSUE_SOURCE_UNAVAILABLE}_{source}_{self.entry_id}",
+            data={"entry_id": self.entry_id},
+            is_fixable=True,
+            is_persistent=True,
+            issue_domain=DOMAIN,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=ISSUE_SOURCE_UNAVAILABLE,
+            translation_placeholders={
+                "source": source_label(source) or source,
+                "error": error or "unknown error",
+            },
+        )
+
+    def _clear_source_issue(self, source: str) -> None:
+        """Clear the unavailability repair once a source recovers."""
+        ir.async_delete_issue(
+            self.hass, DOMAIN, f"{ISSUE_SOURCE_UNAVAILABLE}_{source}_{self.entry_id}"
+        )
 
     def _create_authentication_issue(self) -> None:
         ir.async_create_issue(
