@@ -398,7 +398,7 @@ class AisTrackerCoordinator:
                 raise
             except Exception as error:  # noqa: BLE001
                 self.connection_error = str(error)
-                self._set_status("Disconnected")
+                self._set_status("Disconnected", self.connection_error)
                 _LOGGER.warning("AIS Vessel Tracker connection failed: %s", error)
             if not self._stopping:
                 await asyncio.sleep(delay)
@@ -469,12 +469,14 @@ class AisTrackerCoordinator:
         """Handle one AISStream message."""
         if message.get("Type") == "Error":
             error = str(message.get("Message", "AISStream returned an error"))
+            self.connection_error = error
+            self.source_errors[SOURCE_AISSTREAM] = error
             if any(word in error.lower() for word in ("api key", "unauthor", "auth")):
                 self._create_authentication_issue()
-                self._set_status("Authentication failed")
+                self._set_status("Authentication failed", error)
             else:
                 self._create_connection_issue()
-            self.connection_error = error
+                self._notify()
             _LOGGER.error("AISStream error: %s", error)
             return
 
@@ -735,11 +737,13 @@ class AisTrackerCoordinator:
             listener()
 
     @callback
-    def _set_status(self, status: str) -> None:
+    def _set_status(self, status: str, error: str | None = None) -> None:
         self.connection_status = status
         self.source_status[SOURCE_AISSTREAM] = status
         if status == "Connected":
             self.source_errors.pop(SOURCE_AISSTREAM, None)
+        elif error:
+            self.source_errors[SOURCE_AISSTREAM] = error
         self._notify()
 
     @callback
