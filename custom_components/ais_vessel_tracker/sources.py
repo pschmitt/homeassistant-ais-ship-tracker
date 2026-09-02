@@ -93,7 +93,7 @@ def parse_aiscatcher_message(
         speed_knots=_float(payload.get("speed")),
         course=_float(payload.get("course")),
         heading=_int(payload.get("heading")),
-        vessel_name=_text(payload.get("shipname")),
+        vessel_name=_sanitize_vessel_name(payload.get("shipname")),
         destination=static_data.get("destination"),
         eta=static_data.get("eta"),
         vessel_type=static_data.get("vessel_type"),
@@ -120,7 +120,7 @@ def parse_aisstream_message(message: dict[str, Any]) -> AisObservation | None:
         return AisObservation(
             source=SOURCE_AISSTREAM,
             mmsi=mmsi,
-            vessel_name=_text(metadata.get("ShipName")),
+            vessel_name=_sanitize_vessel_name(metadata.get("ShipName")),
             static_data=_static_data_from_aisstream(static),
         )
 
@@ -141,7 +141,7 @@ def parse_aisstream_message(message: dict[str, Any]) -> AisObservation | None:
         speed_knots=_float(report.get("Sog")),
         course=_float(report.get("Cog")),
         heading=_int(report.get("TrueHeading")),
-        vessel_name=_text(metadata.get("ShipName")),
+        vessel_name=_sanitize_vessel_name(metadata.get("ShipName")),
         navigational_status=_int(report.get("NavigationalStatus")),
         vessel_class=vessel_class,
     )
@@ -178,7 +178,7 @@ def parse_aishub_response(payload: Any) -> list[AisObservation] | None:
                 speed_knots=_available_float(record.get("SOG"), unavailable=102.4),
                 course=_available_float(record.get("COG"), unavailable=360),
                 heading=_available_int(record.get("HEADING"), unavailable=511),
-                vessel_name=_text(record.get("NAME")),
+                vessel_name=_sanitize_vessel_name(record.get("NAME")),
                 navigational_status=_int(record.get("NAVSTAT")),
                 source_timestamp=_aishub_timestamp(record),
                 static_data=_static_data_from_aishub(record),
@@ -295,6 +295,25 @@ def _text(value: Any) -> str | None:
         return None
     normalized = str(value).strip()
     return normalized or None
+
+
+def _sanitize_vessel_name(value: Any) -> str | None:
+    """Clean up a raw AIS ship name.
+
+    AIS transmits names as fixed-width 6-bit ASCII, right-padded with "@"
+    (bit-pattern 0) to fill unused character positions (ITU-R M.1371). A
+    "@" appearing anywhere else in the decoded text means bits were zeroed
+    out by a weak or noisy reception, so treat any name still containing
+    "@" after stripping padding as unusable rather than surface a garbled
+    string.
+    """
+    text = _text(value)
+    if text is None:
+        return None
+    stripped = text.strip("@").strip()
+    if not stripped or "@" in stripped:
+        return None
+    return stripped
 
 
 def _float(value: Any) -> float | None:

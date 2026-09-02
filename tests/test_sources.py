@@ -125,6 +125,33 @@ class SourceParserTest(unittest.TestCase):
         self.assertEqual(observation.static_data["destination"], "BERLIN")
         self.assertEqual(observation.static_data["imo_number"], "1234567")
 
+    def test_vessel_name_padding_is_stripped(self) -> None:
+        self.assertEqual(sources._sanitize_vessel_name("PRINS@@@@@@@@@"), "PRINS")
+        self.assertEqual(sources._sanitize_vessel_name("@@PRINS@@"), "PRINS")
+
+    def test_corrupted_vessel_name_is_discarded(self) -> None:
+        self.assertIsNone(sources._sanitize_vessel_name("PRINS@BRNH@B$"))
+        self.assertIsNone(sources._sanitize_vessel_name("@@@@@@@@@@@@@@@@@@@@"))
+        self.assertIsNone(sources._sanitize_vessel_name(None))
+
+    def test_aiscatcher_static_data_strips_padding_from_shipname(self) -> None:
+        observation = sources.parse_aiscatcher_message(
+            {"mmsi": "211234567", "type": 5, "shipname": "PRINS@@@@@@@@@@@@@"}
+        )
+
+        self.assertIsNotNone(observation)
+        assert observation is not None
+        self.assertEqual(observation.vessel_name, "PRINS")
+
+    def test_aiscatcher_static_data_drops_corrupted_shipname(self) -> None:
+        observation = sources.parse_aiscatcher_message(
+            {"mmsi": "211234567", "type": 5, "shipname": "PRINS@BRNH@B$"}
+        )
+
+        self.assertIsNotNone(observation)
+        assert observation is not None
+        self.assertIsNone(observation.vessel_name)
+
     def test_aisstream_position_is_normalized(self) -> None:
         observation = sources.parse_aisstream_message(
             {
