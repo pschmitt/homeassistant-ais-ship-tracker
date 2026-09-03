@@ -44,4 +44,3 @@ ISSUE_AIS_AUTHENTICATION = "ais_authentication"
 ISSUE_AIS_CONNECTION = "ais_connection"
 ISSUE_SOURCE_UNAVAILABLE = "source_unavailable"
 
-ZONE_NAME = "AIS Vessel Tracking Area"

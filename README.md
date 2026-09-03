@@ -83,13 +83,6 @@ single AISStream subscription. Open **Configure** for the integration and use
 **Manage tracking areas** to select the source zone for each named area, add
 another area, or remove one; shared settings are edited separately.
 
-The integration also creates one passive HA zone for each configured area for
-map display; the first is `zone.ais_vessel_tracking_area` and additional zones
-include the configured area name. These mirror zones follow their selected
-source zone and are updated when that source changes. They are safe to use on
-maps without affecting presence tracking, and are removed with the
-integration.
-
 Class B transponders, an MMSI watchlist, map entity retention, and the maximum
 number of map entities can be changed later from the integration's options. Map
 entities are limited to ten active vessels by default; this limit is
@@ -153,8 +146,6 @@ The integration creates these entities for every configured tracking area:
   `AIS Connection Status` sensor exposed, plus a per-source breakdown. AIS-catcher's
   sensor also exposes `topic`, AISHub's exposes `poll_interval_seconds`, and
   AISStream's exposes `vessel_watchlist` when one is configured.
-- `zone.ais_vessel_tracking_area` and one additional passive zone per configured
-  area — map representations of the selected Home Assistant source zones.
 
 When map entities are enabled, up to the configured maximum number of active
 vessels get sensors named `sensor.ais_vessel_tracker_<vessel-name>` with latitude,

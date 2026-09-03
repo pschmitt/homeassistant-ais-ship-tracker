@@ -34,7 +34,6 @@ from .const import (
 from .coordinator import VesselPhotoCoordinator
 from .services import async_setup_services
 from .tracker import AisTrackerCoordinator
-from .zone import async_remove_zones, async_sync_zones
 
 
 @dataclass(slots=True)
@@ -161,7 +160,6 @@ async def async_setup_entry(
     """Set up AIS Vessel Tracker from a config entry."""
     settings = {**entry.data, **entry.options}
     _update_config_issues(hass, entry, settings)
-    await async_sync_zones(hass, entry.entry_id, settings)
     tracker = AisTrackerCoordinator(
         hass,
         async_get_clientsession(hass),
@@ -193,18 +191,13 @@ async def async_setup_entry(
         if area.get(CONF_ZONE_ENTITY)
     }
 
-    async def async_refresh_source_zone() -> None:
-        """Refresh the mirrored zone and AIS subscription."""
-        await async_sync_zones(hass, entry.entry_id, settings)
-        await tracker.async_restart()
-
     @callback
     def source_zone_changed(event: Any) -> None:
-        """Refresh the AIS rectangle when a source zone changes."""
+        """Restart AIS sources when a source zone moves or resizes."""
         del event
         entry.async_create_background_task(
             hass,
-            async_refresh_source_zone(),
+            tracker.async_restart(),
             "ais_vessel_tracker_zone_changed",
         )
 
@@ -247,10 +240,3 @@ async def async_unload_entry(
     if entry.runtime_data is not None:
         await entry.runtime_data.tracker.async_stop()
     return unload_ok
-
-
-async def async_remove_entry(
-    hass: HomeAssistant, entry: AisVesselTrackerConfigEntry
-) -> None:
-    """Remove integration-owned resources with the config entry."""
-    await async_remove_zones(hass, entry.entry_id)
