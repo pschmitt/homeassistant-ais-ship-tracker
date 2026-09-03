@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from math import cos, radians, sqrt
 from typing import Any
 
@@ -135,6 +135,10 @@ class AisTrackerCoordinator:
         self.source_errors: dict[str, str] = {}
         self.source_last_message: dict[str, str] = {}
         self._seen_mmsis_by_area: dict[str, set[str]] = {}
+        # Local date each area's _seen_mmsis_by_area set was last reset for,
+        # so a returning vessel is counted again each day instead of only on
+        # the first day it was ever seen since the last restart.
+        self._seen_mmsis_date: dict[str, date] = {}
         self._last_vessel_switch: dict[str, datetime] = {}
         self._listeners: list[Callable[[], None]] = []
         self._store = Store(
@@ -253,9 +257,19 @@ class AisTrackerCoordinator:
             if areas:
                 self.last_vessels[area_id(areas[0], 1)] = dict(stored)
                 migrated = True
+        today = dt_util.now().date()
         for area_key, vessel in self.last_vessels.items():
-            self._seen_mmsis_by_area[area_key] = {str(vessel["mmsi"])}
             spotted_time = vessel.get("spotted_time")
+            spotted_date = (
+                dt_util.as_local(self._sighting_time({"spotted_time": spotted_time})).date()
+                if spotted_time
+                else None
+            )
+            self._seen_mmsis_date[area_key] = today
+            if spotted_date == today:
+                # Already recorded today (or restored from earlier today);
+                # avoid appending a duplicate sighting for it below.
+                self._seen_mmsis_by_area[area_key] = {str(vessel["mmsi"])}
             if not spotted_time:
                 continue
             if any(
@@ -571,10 +585,14 @@ class AisTrackerCoordinator:
         self._trim_map_vessels()
         stored = False
         public_vessel = self._public_vessel(vessel)
+        today = dt_util.now().date()
         for tracking_area_id in self._area_ids_for_position(
             observation.latitude, observation.longitude
         ):
-            seen_mmsis = self._seen_mmsis_by_area.setdefault(tracking_area_id, set())
+            if self._seen_mmsis_date.get(tracking_area_id) != today:
+                self._seen_mmsis_by_area[tracking_area_id] = set()
+                self._seen_mmsis_date[tracking_area_id] = today
+            seen_mmsis = self._seen_mmsis_by_area[tracking_area_id]
             if observation.mmsi not in seen_mmsis:
                 seen_mmsis.add(observation.mmsi)
                 self.vessel_sightings.setdefault(tracking_area_id, []).append(
