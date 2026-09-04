@@ -304,6 +304,13 @@ class VesselCountSensor(AisVesselTrackerEntity, SensorEntity):
         """Return the number of distinct vessels in the current period."""
         return self.coordinator.count_vessel_sightings(self.area_id, period=self.period)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the distinct vessels (MMSI + name) counted this period."""
+        return {
+            "vessels": self.coordinator.vessels_seen(self.area_id, period=self.period)
+        }
+
     async def async_added_to_hass(self) -> None:
         """Subscribe to tracker updates."""
         await super().async_added_to_hass()

@@ -279,7 +279,11 @@ class AisTrackerCoordinator:
             ):
                 continue
             self.vessel_sightings.setdefault(area_key, []).append(
-                {"mmsi": str(vessel["mmsi"]), "spotted_time": str(spotted_time)}
+                {
+                    "mmsi": str(vessel["mmsi"]),
+                    "vessel_name": vessel.get("vessel_name"),
+                    "spotted_time": str(spotted_time),
+                }
             )
             migrated = True
         self._purge_old_sightings()
@@ -598,6 +602,7 @@ class AisTrackerCoordinator:
                 self.vessel_sightings.setdefault(tracking_area_id, []).append(
                     {
                         "mmsi": observation.mmsi,
+                        "vessel_name": public_vessel.get("vessel_name"),
                         "spotted_time": public_vessel["spotted_time"],
                     }
                 )
@@ -656,15 +661,17 @@ class AisTrackerCoordinator:
             "vessel_sightings": self.vessel_sightings,
         }
 
-    def count_vessel_sightings(self, area_key: str, *, period: str) -> int:
-        """Count distinct MMSIs recorded in the current local time period."""
+    def _sightings_in_period(
+        self, area_key: str, *, period: str
+    ) -> list[dict[str, Any]]:
+        """Return raw sightings recorded in the current local time period."""
         now = dt_util.now()
         if period == "day":
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         else:
             start = now - timedelta(seconds=3600)
 
-        mmsis: set[str] = set()
+        matched = []
         for sighting in self.vessel_sightings.get(area_key, []):
             try:
                 spotted = datetime.fromisoformat(sighting["spotted_time"])
@@ -673,8 +680,30 @@ class AisTrackerCoordinator:
             if spotted.tzinfo is None:
                 spotted = spotted.replace(tzinfo=UTC)
             if start <= dt_util.as_local(spotted) <= now:
-                mmsis.add(str(sighting["mmsi"]))
-        return len(mmsis)
+                matched.append(sighting)
+        return matched
+
+    def count_vessel_sightings(self, area_key: str, *, period: str) -> int:
+        """Count distinct MMSIs recorded in the current local time period."""
+        return len(
+            {
+                str(sighting["mmsi"])
+                for sighting in self._sightings_in_period(area_key, period=period)
+            }
+        )
+
+    def vessels_seen(self, area_key: str, *, period: str) -> list[dict[str, str]]:
+        """Return the distinct vessels (MMSI + name) seen in the period."""
+        vessels: dict[str, str] = {}
+        for sighting in self._sightings_in_period(area_key, period=period):
+            mmsi = str(sighting["mmsi"])
+            vessel_name = sighting.get("vessel_name")
+            if vessel_name or mmsi not in vessels:
+                vessels[mmsi] = str(vessel_name or "Unknown Vessel")
+        return [
+            {"mmsi": mmsi, "vessel_name": vessels[mmsi]}
+            for mmsi in sorted(vessels, key=lambda mmsi: (vessels[mmsi].lower(), mmsi))
+        ]
 
     def set_marine_traffic_vessel_id(self, mmsi: str, vessel_id: str) -> None:
         """Attach MarineTraffic's internal vessel ID to matching vessel data."""
