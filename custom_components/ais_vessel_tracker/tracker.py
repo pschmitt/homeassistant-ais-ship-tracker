@@ -693,16 +693,25 @@ class AisTrackerCoordinator:
         )
 
     def vessels_seen(self, area_key: str, *, period: str) -> list[dict[str, str]]:
-        """Return the distinct vessels (MMSI + name) seen in the period."""
-        vessels: dict[str, str] = {}
+        """Return the distinct vessels (MMSI, name, first sighting) seen."""
+        vessels: dict[str, dict[str, str]] = {}
         for sighting in self._sightings_in_period(area_key, period=period):
             mmsi = str(sighting["mmsi"])
-            vessel_name = sighting.get("vessel_name")
-            if vessel_name or mmsi not in vessels:
-                vessels[mmsi] = str(vessel_name or "Unknown Vessel")
+            spotted_time = str(sighting.get("spotted_time") or "")
+            existing = vessels.get(mmsi)
+            if existing is not None and (
+                not spotted_time or spotted_time >= existing["spotted_time"]
+            ):
+                continue
+            vessels[mmsi] = {
+                "vessel_name": str(sighting.get("vessel_name") or "Unknown Vessel"),
+                "spotted_time": spotted_time,
+            }
         return [
-            {"mmsi": mmsi, "vessel_name": vessels[mmsi]}
-            for mmsi in sorted(vessels, key=lambda mmsi: (vessels[mmsi].lower(), mmsi))
+            {"mmsi": mmsi, **vessels[mmsi]}
+            for mmsi in sorted(
+                vessels, key=lambda mmsi: (vessels[mmsi]["vessel_name"].lower(), mmsi)
+            )
         ]
 
     def set_marine_traffic_vessel_id(self, mmsi: str, vessel_id: str) -> None:

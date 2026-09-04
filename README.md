@@ -133,7 +133,8 @@ The integration creates these entities for every configured tracking area:
   `sensor.ais_vessel_tracker_<area>_vessels_this_hour` — distinct MMSI counts for
   the local calendar day and rolling last 3,600 seconds. Their `vessels`
   attribute lists the individual vessels counted, as a JSON array of
-  `{"mmsi": ..., "vessel_name": ...}` objects.
+  `{"mmsi": ..., "vessel_name": ..., "spotted_time": ...}` objects, where
+  `spotted_time` is that vessel's first sighting within the period.
 - `event.ais_vessel_tracker_<area>_last_vessel_updated` — emits `vessel_updated`
   each time a different vessel becomes that area's last-passing-vessel, after
   its optional photo lookup completes, with a bounded 45-second wait.
